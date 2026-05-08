@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finance Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <script>
+    // Apply theme before stylesheets load to avoid flash
+    (function () {
+      try {
+        var pref = localStorage.getItem('finance.theme');
+        if (!pref) {
+          var raw = localStorage.getItem('finance.settings');
+          var s = raw ? JSON.parse(raw) : {};
+          pref = s.theme || 'system';
+        }
+        var eff = pref === 'system'
+          ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : pref;
+        document.documentElement.setAttribute('data-theme', eff);
+        document.documentElement.setAttribute('data-theme-pref', pref);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script type="module">
+    // Firebase SDK (v10 modular) — exposed as window.FB for non-module scripts
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import {
+      getFirestore, doc, getDoc, setDoc, onSnapshot,
+      enableIndexedDbPersistence
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    window.FB = {
+      initializeApp,
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+      getFirestore, doc, getDoc, setDoc, onSnapshot, enableIndexedDbPersistence
+    };
+    window.dispatchEvent(new Event('fb-sdk-ready'));
+  </script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">FT</span>
+      <span class="brand-name">Finance Tracker</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
+      <button class="tab" data-tab="jobs" role="tab" aria-selected="false">Jobs</button>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+        <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-system" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg>
+      </button>
+      <button class="icon-btn" id="settings-btn" title="Settings" aria-label="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="view-dashboard" class="view active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Fares earned</div>
+          <div class="kpi-value" id="kpi-earned">—</div>
+          <div class="kpi-hint">Share of received cash</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pending from client</div>
+          <div class="kpi-value warning" id="kpi-pending">—</div>
+          <div class="kpi-hint">Remaining receivables</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Owed to team</div>
+          <div class="kpi-value warning" id="kpi-owed-team">—</div>
+          <div class="kpi-hint">Pending payouts to freelancers</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cash on hand</div>
+          <div class="kpi-value accent" id="kpi-onhand">—</div>
+          <div class="kpi-hint">In − Out across all jobs</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Active</div>
+          <div class="kpi-value accent" id="kpi-active">—</div>
+          <div class="kpi-hint">Jobs in progress</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Completed</div>
+          <div class="kpi-value success" id="kpi-completed">—</div>
+          <div class="kpi-hint">Fully paid jobs</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Cash flow / month</h3>
+          <div class="chart-wrap"><canvas id="chart-income"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Earnings by client</h3>
+          <div class="chart-wrap"><canvas id="chart-clients"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Job payment status</h3>
+          <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Business vs Technical</h3>
+          <div class="chart-wrap"><canvas id="chart-split"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Payment methods (incoming)</h3>
+          <div class="chart-wrap"><canvas id="chart-methods-in"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Payment methods (outgoing)</h3>
+          <div class="chart-wrap"><canvas id="chart-methods-out"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-jobs" class="view">
+      <div class="jobs-toolbar">
+        <div class="filters">
+          <input type="search" id="search-input" class="input" placeholder="Search job or client…">
+          <select id="status-filter" class="input">
+            <option value="all">All statuses</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="partial">Partially paid</option>
+            <option value="paid">Fully paid</option>
+          </select>
+          <select id="client-filter" class="input">
+            <option value="all">All clients</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="add-job-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add New Job
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="jobs-table" id="jobs-table">
+          <thead>
+            <tr>
+              <th data-sort="jobName">Job</th>
+              <th>Description</th>
+              <th data-sort="clientName">Client</th>
+              <th>Freelancers</th>
+              <th data-sort="totalPay" class="num">Total Pay</th>
+              <th data-sort="faresTechnicalPercent" class="num">Tech %</th>
+              <th class="num">Client Pay</th>
+              <th class="num">Received Total</th>
+              <th class="num">Remaining Total</th>
+              <th class="num">Received Fares</th>
+              <th class="num">Remaining Fares</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state" hidden>
+          <div class="empty-emoji">📋</div>
+          <p>No jobs yet. Click <strong>Add New Job</strong> to start tracking.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Add/Edit Job Modal -->
+  <div class="modal-backdrop" id="job-modal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="job-modal-title">
+      <header class="modal-header">
+        <h2 id="job-modal-title">Add New Job</h2>
+        <button class="icon-btn modal-close" data-close="job-modal" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <form id="job-form" class="modal-body">
+        <input type="hidden" id="job-id">
+
+        <div class="form-row">
+          <label class="field">
+            <span>Job Name <em>*</em></span>
+            <input type="text" id="f-jobName" class="input" required>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span>Description</span>
+            <textarea id="f-description" class="input" rows="2"></textarea>
+          </label>
+        </div>
+
+        <div class="form-row two">
+          <label class="field">
+            <span>Client Name <em>*</em></span>
+            <input type="text" id="f-clientName" class="input" list="client-list" required>
+            <datalist id="client-list"></datalist>
+          </label>
+          <label class="field">
+            <span>Total Pay (E£) <em>*</em></span>
+            <input type="number" id="f-totalPay" class="input" min="0" step="0.01" required>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Mode</span>
+          <div class="mode-toggle" role="radiogroup">
+            <button type="button" class="mode-btn active" data-mode="alone" role="radio" aria-checked="true">🧍 Alone</button>
+            <button type="button" class="mode-btn" data-mode="team" role="radio" aria-checked="false">👥 With team</button>
+          </div>
+        </div>
+
+        <div class="form-row" id="freelancers-row" hidden>
+          <span class="field-label">Freelancers</span>
+          <div class="chip-picker" id="freelancers-picker"></div>
+          <div class="add-freelancer">
+            <input type="text" id="new-freelancer" class="input" placeholder="Add another freelancer…">
+            <button type="button" class="btn btn-secondary" id="add-freelancer-btn">Add</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span>Fares Technical % <small id="tech-hint">(0–60 of project total)</small></span>
+            <div class="slider-row">
+              <input type="range" id="f-tech" min="0" max="100" value="100" step="1">
+              <input type="number" id="f-tech-num" min="0" max="100" value="100" class="input slider-num">
+              <span class="suffix">%</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="calc-panel">
+          <div class="calc-row">
+            <span>Business <span class="dim">(40%)</span></span>
+            <strong id="calc-business">E£ 0</strong>
+          </div>
+          <div class="calc-row">
+            <span>Technical <span class="dim" id="calc-tech-pct">(60%)</span></span>
+            <strong id="calc-technical">E£ 0</strong>
+          </div>
+          <div class="calc-row total">
+            <span>Fares Share <span class="dim" id="calc-total-pct">(100%)</span></span>
+            <strong id="calc-total">E£ 0</strong>
+          </div>
+        </div>
+
+        <details class="form-details">
+          <summary>Already received from client? (optional)</summary>
+          <div class="form-row two">
+            <label class="field">
+              <span>Amount</span>
+              <input type="number" id="f-prepay-client" class="input" min="0" step="0.01" value="0">
+            </label>
+            <label class="field">
+              <span>Method</span>
+              <select id="f-prepay-client-method" class="input">
+                <option value="Telda">Telda</option>
+                <option value="Instapay">Instapay</option>
+                <option value="Binance">Binance</option>
+                <option value="VodafoneCash">VodafoneCash</option>
+              </select>
+            </label>
+          </div>
+          <input type="hidden" id="f-prepay-fares" value="0">
+        </details>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="job-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Job</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Payment Log Modal -->
+  <div class="modal-backdrop" id="payments-modal" hidden>
+    <div class="modal modal-lg" role="dialog" aria-labelledby="payments-title">
+      <header class="modal-header">
+        <h2 id="payments-title">Payments</h2>
+        <button class="icon-btn modal-close" data-close="payments-modal" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="payments-summary" id="payments-summary"></div>
+
+        <div class="freelancer-breakdown" id="freelancer-breakdown"></div>
+
+        <form id="payment-form" class="payment-form-v2">
+          <div class="direction-toggle" role="radiogroup">
+            <button type="button" class="dir-btn active" data-direction="incoming" role="radio" aria-checked="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              Money In
+              <small>Client → Me</small>
+            </button>
+            <button type="button" class="dir-btn" data-direction="outgoing" role="radio" aria-checked="false">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+              Money Out
+              <small>Me → Freelancer</small>
+            </button>
+          </div>
+
+          <div class="payment-fields">
+            <label class="field" id="p-to-field" hidden>
+              <span>To freelancer <em>*</em></span>
+              <select id="p-to" class="input">
+                <option value="">Select…</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Amount <em>*</em></span>
+              <input type="number" id="p-amount" class="input" min="0" step="0.01" required>
+            </label>
+            <label class="field">
+              <span>Method</span>
+              <select id="p-method" class="input"></select>
+            </label>
+            <label class="field">
+              <span>Date</span>
+              <input type="date" id="p-date" class="input" required>
+            </label>
+            <label class="field field-wide">
+              <span>Note</span>
+              <input type="text" id="p-note" class="input" placeholder="Optional">
+            </label>
+            <button type="submit" class="btn btn-primary p-submit">Add Payment</button>
+          </div>
+        </form>
+
+        <div class="payments-list-header">
+          <h3>Payment history</h3>
+          <div class="payments-filter">
+            <button type="button" class="pf-btn active" data-filter="all">All</button>
+            <button type="button" class="pf-btn" data-filter="incoming">In</button>
+            <button type="button" class="pf-btn" data-filter="outgoing">Out</button>
+          </div>
+        </div>
+        <div class="payments-list" id="payments-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Drawer -->
+  <div class="drawer-backdrop" id="settings-drawer" hidden>
+    <aside class="drawer" role="dialog" aria-labelledby="settings-title">
+      <header class="drawer-header">
+        <h2 id="settings-title">Settings</h2>
+        <button class="icon-btn modal-close" data-close="settings-drawer" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="drawer-body">
+        <section class="settings-section" id="settings-account-section">
+          <h3>Account</h3>
+          <div id="settings-account-body"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Theme</h3>
+          <div class="segmented" id="theme-segmented" role="radiogroup">
+            <button type="button" data-theme-pick="light" role="radio">Light</button>
+            <button type="button" data-theme-pick="dark" role="radio">Dark</button>
+            <button type="button" data-theme-pick="system" role="radio">System</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Currency</h3>
+          <select id="currency-select" class="input">
+            <option value="EGP">EGP — Egyptian Pound (E£)</option>
+            <option value="USD">USD — US Dollar ($)</option>
+            <option value="EUR">EUR — Euro (€)</option>
+            <option value="SAR">SAR — Saudi Riyal (﷼)</option>
+            <option value="AED">AED — UAE Dirham (د.إ)</option>
+          </select>
+        </section>
+
+        <section class="settings-section">
+          <h3>Freelancers</h3>
+          <div class="chip-list" id="settings-freelancers"></div>
+          <div class="add-freelancer">
+            <input type="text" id="settings-new-freelancer" class="input" placeholder="Add freelancer…">
+            <button type="button" class="btn btn-secondary" id="settings-add-freelancer">Add</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Data</h3>
+          <div class="data-actions">
+            <button type="button" class="btn btn-secondary" id="export-btn">Export JSON</button>
+            <button type="button" class="btn btn-secondary" id="import-btn">Import JSON</button>
+            <input type="file" id="import-file" accept="application/json" hidden>
+            <button type="button" class="btn btn-danger" id="clear-btn">Clear all</button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Confirm dialog -->
+  <div class="modal-backdrop" id="confirm-modal" hidden>
+    <div class="modal modal-sm" role="dialog">
+      <header class="modal-header">
+        <h2 id="confirm-title">Are you sure?</h2>
+      </header>
+      <div class="modal-body">
+        <p id="confirm-message"></p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="confirm-no">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-yes">Confirm</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Auth overlay (sign-in / setup) -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="brand-mark">FT</span>
+        <h1>Finance Tracker</h1>
+      </div>
+
+      <div class="auth-state" data-state="signin" hidden>
+        <p class="auth-message">Sign in to access your data.</p>
+        <button class="btn btn-google" id="signin-btn">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+          Sign in with Google
+        </button>
+        <p class="auth-hint">Only <code>faresayman12316@gmail.com</code> can access this app.</p>
+      </div>
+
+      <div class="auth-state" data-state="error" hidden>
+        <div class="auth-error">
+          <p id="auth-error-msg">Access denied.</p>
+        </div>
+        <button class="btn btn-secondary" id="signin-retry">Try again</button>
+      </div>
+
+      <div class="auth-state" data-state="setup" hidden>
+        <div class="auth-setup">
+          <h2>Firebase setup needed</h2>
+          <p>To enable cloud sync, edit <code>firebase-config.js</code> in your project folder:</p>
+          <ol class="auth-steps">
+            <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener">Firebase Console</a> and create a project.</li>
+            <li>Add a <strong>Web app</strong> and copy the <code>firebaseConfig</code> object.</li>
+            <li>Enable <strong>Authentication → Google</strong> sign-in.</li>
+            <li>Enable <strong>Firestore Database</strong> in production mode.</li>
+            <li>Paste the config into <code>firebase-config.js</code>.</li>
+            <li>Reload this page.</li>
+          </ol>
+          <button class="btn btn-secondary" id="continue-local-btn">Continue in local-only mode</button>
+        </div>
+      </div>
+
+      <div class="auth-state" data-state="loading">
+        <div class="auth-spinner"></div>
+        <p>Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts (order matters) -->
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/jobs.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/form.js"></script>
+  <script src="js/table.js"></script>
+  <script src="js/payments.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
