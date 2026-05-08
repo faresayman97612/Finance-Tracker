@@ -3,6 +3,7 @@
 const JobForm = (function () {
   let editingId = null;
   let mode = 'alone'; // 'alone' | 'team'
+  let workStatus = 'in-progress'; // 'in-progress' | 'delivered'
   let selectedFreelancers = [];
 
   const els = {};
@@ -32,12 +33,14 @@ const JobForm = (function () {
     els.prepayFares = document.getElementById('f-prepay-fares');
     els.clientList = document.getElementById('client-list');
     els.deadlineDate = document.getElementById('f-deadlineDate');
+    els.workBtns = document.querySelectorAll('[data-work]');
   }
 
   function init() {
     cacheEls();
 
     els.modeBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+    els.workBtns.forEach(btn => btn.addEventListener('click', () => setWorkStatus(btn.dataset.work)));
 
     els.tech.addEventListener('input', () => {
       els.techNum.value = els.tech.value;
@@ -75,6 +78,15 @@ const JobForm = (function () {
       renderFreelancerPicker();
     }
     updateCalc();
+  }
+
+  function setWorkStatus(newStatus) {
+    workStatus = newStatus === 'delivered' ? 'delivered' : 'in-progress';
+    els.workBtns.forEach(b => {
+      const on = b.dataset.work === workStatus;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
   }
 
   function renderFreelancerPicker() {
@@ -193,6 +205,7 @@ const JobForm = (function () {
       els.prepayClient.value = 0;
       els.prepayFares.value = 0;
       els.deadlineDate.value = job.deadlineDate || '';
+      setWorkStatus(job.workStatus || 'in-progress');
       const details = els.prepayClient.closest('details');
       if (details) details.hidden = true;
       if (job.freelancers.length === 0) {
@@ -211,6 +224,7 @@ const JobForm = (function () {
       els.prepayClient.value = 0;
       els.prepayFares.value = 0;
       els.deadlineDate.value = '';
+      setWorkStatus('in-progress');
       const details = els.prepayClient.closest('details');
       if (details) details.hidden = false;
       selectedFreelancers = [];
@@ -236,7 +250,8 @@ const JobForm = (function () {
       freelancers: mode === 'team' ? selectedFreelancers.slice() : [],
       totalPay: Number(els.totalPay.value),
       faresTechnicalPercent: Utils.round2(Utils.clamp(Number(els.tech.value), 0, 100) * 0.6),
-      deadlineDate: els.deadlineDate.value || ''
+      deadlineDate: els.deadlineDate.value || '',
+      workStatus
     };
     if (!data.jobName) { Utils.toast('Job name is required', 'error'); return; }
     if (!data.clientName) { Utils.toast('Client name is required', 'error'); return; }

@@ -56,7 +56,7 @@ const Dashboard = (function () {
     const clientReceivables = {};
     const jobValues = [];
     let overdueCount = 0, dueSoonCount = 0, totalPaidOut = 0;
-    const dlStatus = { overdue: 0, 'due-soon': 0, ok: 0, done: 0, none: 0 };
+    const dlStatus = { overdue: 0, 'due-soon': 0, ok: 0, 'awaiting-payment': 0, done: 0, none: 0 };
     const jobsPerMonth = {};
     const faresInByMonth = {};
 
@@ -448,12 +448,13 @@ const Dashboard = (function () {
   function renderDeadlineChart(agg, palette) {
     const ctx = document.getElementById('chart-deadline');
     if (!ctx) return;
-    const labels = ['Overdue', 'Due soon', 'On track', 'Done', 'No deadline'];
+    const labels = ['Overdue', 'Due soon', 'On track', 'Awaiting payment', 'Done', 'No deadline'];
     const data = [
       agg.dlStatus.overdue || 0, agg.dlStatus['due-soon'] || 0,
-      agg.dlStatus.ok || 0, agg.dlStatus.done || 0, agg.dlStatus.none || 0
+      agg.dlStatus.ok || 0, agg.dlStatus['awaiting-payment'] || 0,
+      agg.dlStatus.done || 0, agg.dlStatus.none || 0
     ];
-    const colors = [palette.danger, palette.warning, palette.success, palette.accent, palette.grid];
+    const colors = [palette.danger, palette.warning, palette.success, palette.accent, palette.colors[0], palette.grid];
     if (charts.deadline) charts.deadline.destroy();
     charts.deadline = new Chart(ctx, {
       type: 'doughnut',

@@ -277,10 +277,17 @@
           </label>
         </div>
 
-        <div class="form-row">
+        <div class="form-row two">
           <label class="field">
             <span>Deadline Date <small>(optional)</small></span>
             <input type="date" id="f-deadlineDate" class="input">
+          </label>
+          <label class="field">
+            <span>Work status</span>
+            <div class="mode-toggle" role="radiogroup" style="margin-top:4px">
+              <button type="button" class="mode-btn active" data-work="in-progress" role="radio" aria-checked="true">In Progress</button>
+              <button type="button" class="mode-btn" data-work="delivered" role="radio" aria-checked="false">Delivered</button>
+            </div>
           </label>
         </div>
 

@@ -93,19 +93,28 @@ const JobsTable = (function () {
 
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const dlCell = (() => {
+      const st = j.deadlineStatus;
+      // Format deadline date if present
+      let datePart = '';
+      if (j.deadlineDate) {
+        const [yr, mo, dy] = j.deadlineDate.split('-').map(Number);
+        datePart = `${String(dy).padStart(2,'0')} ${MONTHS[mo-1]} ${yr}`;
+      }
+      if (st === 'awaiting-payment') {
+        const dateHint = datePart ? `<span class="dim" style="font-size:10px;display:block">${datePart}</span>` : '';
+        return `<span style="color:var(--accent);font-weight:500">Delivered</span>${dateHint}`;
+      }
       if (!j.deadlineDate) return '<span class="amount-zero">—</span>';
-      const [yr, mo, dy] = j.deadlineDate.split('-').map(Number);
-      const formatted = `${String(dy).padStart(2,'0')} ${MONTHS[mo-1]} ${yr}`;
       let colorAttr = 'class="amount-zero"';
-      if (j.deadlineStatus === 'done')     colorAttr = 'class="amount-pos"';
-      if (j.deadlineStatus === 'due-soon') colorAttr = 'class="amount-pending"';
-      if (j.deadlineStatus === 'overdue')  colorAttr = 'style="color:var(--danger);font-weight:500"';
+      if (st === 'done')     colorAttr = 'class="amount-pos"';
+      if (st === 'due-soon') colorAttr = 'class="amount-pending"';
+      if (st === 'overdue')  colorAttr = 'style="color:var(--danger);font-weight:500"';
       let hint = '';
-      if (j.deadlineStatus === 'overdue')
+      if (st === 'overdue')
         hint = ` <span class="dim" style="font-size:10px">(${Math.abs(j.daysToDeadline)}d ago)</span>`;
-      else if (j.deadlineStatus === 'due-soon')
+      else if (st === 'due-soon')
         hint = ` <span class="dim" style="font-size:10px">(${j.daysToDeadline}d)</span>`;
-      return `<span ${colorAttr}>${formatted}</span>${hint}`;
+      return `<span ${colorAttr}>${datePart}</span>${hint}`;
     })();
 
     return `

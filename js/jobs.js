@@ -34,6 +34,7 @@ const Jobs = (function () {
       totalPay: Number(data.totalPay) || 0,
       faresTechnicalPercent: Utils.clamp(data.faresTechnicalPercent ?? 0, 0, MAX_TECH_PERCENT),
       status: 'active',
+      workStatus: data.workStatus === 'delivered' ? 'delivered' : 'in-progress',
       createdAt: Utils.nowISO(),
       updatedAt: Utils.nowISO(),
       deadlineDate: data.deadlineDate ? String(data.deadlineDate).trim() : '',
@@ -66,6 +67,7 @@ const Jobs = (function () {
       job.faresTechnicalPercent = Utils.clamp(data.faresTechnicalPercent, 0, MAX_TECH_PERCENT);
     }
     if ('deadlineDate' in data) job.deadlineDate = data.deadlineDate ? String(data.deadlineDate).trim() : '';
+    if ('workStatus' in data) job.workStatus = data.workStatus === 'delivered' ? 'delivered' : 'in-progress';
     job.updatedAt = Utils.nowISO();
     persist();
     return job;
@@ -176,18 +178,27 @@ const Jobs = (function () {
     if (totalPay > 0 && cashIn >= totalPay) paymentStatus = 'paid';
     else if (cashIn > 0) paymentStatus = 'partial';
 
+    const workStatus = job.workStatus === 'delivered' ? 'delivered' : 'in-progress';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let daysToDeadline = null;
     let deadlineStatus = 'none';
-    if (job.deadlineDate) {
+    if (paymentStatus === 'paid') {
+      deadlineStatus = 'done';
+    } else if (workStatus === 'delivered') {
+      deadlineStatus = 'awaiting-payment';
+    } else if (job.deadlineDate) {
       const [y, m, d] = job.deadlineDate.split('-').map(Number);
       const dl = new Date(y, m - 1, d);
       daysToDeadline = Math.round((dl - today) / 86400000);
-      if (paymentStatus === 'paid') deadlineStatus = 'done';
-      else if (daysToDeadline < 0) deadlineStatus = 'overdue';
+      if (daysToDeadline < 0) deadlineStatus = 'overdue';
       else if (daysToDeadline <= 7) deadlineStatus = 'due-soon';
       else deadlineStatus = 'ok';
+    }
+    if (job.deadlineDate && deadlineStatus === 'awaiting-payment') {
+      const [y, m, d] = job.deadlineDate.split('-').map(Number);
+      const dl = new Date(y, m - 1, d);
+      daysToDeadline = Math.round((dl - today) / 86400000);
     }
 
     return {
@@ -212,6 +223,7 @@ const Jobs = (function () {
       incomingByMethod,
       outgoingByMethod,
       paymentStatus,
+      workStatus,
       daysToDeadline,
       deadlineStatus
     };
