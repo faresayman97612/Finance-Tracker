@@ -100,6 +100,26 @@
           <div class="kpi-value success" id="kpi-completed">—</div>
           <div class="kpi-hint">Fully paid jobs</div>
         </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total pipeline</div>
+          <div class="kpi-value accent" id="kpi-pipeline">—</div>
+          <div class="kpi-hint">Sum of all Fares shares</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Collection rate</div>
+          <div class="kpi-value success" id="kpi-collection-rate">—</div>
+          <div class="kpi-hint">Cash in vs total pay</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total jobs</div>
+          <div class="kpi-value" id="kpi-total-jobs">—</div>
+          <div class="kpi-hint">All time</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg job value</div>
+          <div class="kpi-value" id="kpi-avg-job">—</div>
+          <div class="kpi-hint">Total pay per job</div>
+        </div>
       </div>
 
       <div class="charts-grid">
@@ -126,6 +146,18 @@
         <div class="chart-card">
           <h3>Payment methods (outgoing)</h3>
           <div class="chart-wrap"><canvas id="chart-methods-out"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Freelancer payouts</h3>
+          <div class="chart-wrap"><canvas id="chart-freelancers"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Client receivables</h3>
+          <div class="chart-wrap"><canvas id="chart-receivables"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Top jobs by value</h3>
+          <div class="chart-wrap"><canvas id="chart-top-jobs"></canvas></div>
         </div>
       </div>
     </section>

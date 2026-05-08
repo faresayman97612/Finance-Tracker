@@ -50,6 +50,10 @@ const Dashboard = (function () {
     const earningsByClient = {};
     const incomingByMethod = {};
     const outgoingByMethod = {};
+    let totalPipeline = 0, totalCashIn = 0, totalTotalPay = 0;
+    const freelancerAgg = {};
+    const clientReceivables = {};
+    const jobValues = [];
 
     for (const j of computed) {
       earned += j.faresReceived;
@@ -71,6 +75,23 @@ const Dashboard = (function () {
       // Total Fares earns from this client (full contract value × Fares %)
       const c = j.clientName || 'Unknown';
       earningsByClient[c] = (earningsByClient[c] || 0) + j.faresShare;
+
+      totalPipeline += j.faresShare;
+      totalCashIn   += j.cashIn;
+      totalTotalPay += j.totalPay;
+
+      for (const f of (j.freelancerStats || [])) {
+        if (!freelancerAgg[f.name]) freelancerAgg[f.name] = { paid: 0, owed: 0 };
+        freelancerAgg[f.name].paid += f.paid;
+        freelancerAgg[f.name].owed += f.owedNow;
+      }
+
+      const cl = j.clientName || 'Unknown';
+      if (!clientReceivables[cl]) clientReceivables[cl] = { cashIn: 0, remaining: 0 };
+      clientReceivables[cl].cashIn    += j.cashIn;
+      clientReceivables[cl].remaining += Math.max(0, j.remainingFromClient);
+
+      jobValues.push({ label: `${j.jobName} (${j.clientName || 'Unknown'})`, totalPay: j.totalPay });
 
       for (const p of (j.payments || [])) {
         const k = Utils.monthKey(p.date);
@@ -96,7 +117,14 @@ const Dashboard = (function () {
       unpaid, partial, paid,
       cashInByMonth, cashOutByMonth,
       earningsByClient,
-      incomingByMethod, outgoingByMethod
+      incomingByMethod, outgoingByMethod,
+      totalPipeline:  Utils.round2(totalPipeline),
+      totalCashIn:    Utils.round2(totalCashIn),
+      totalTotalPay:  Utils.round2(totalTotalPay),
+      totalJobs:      computed.length,
+      freelancerAgg,
+      clientReceivables,
+      jobValues
     };
   }
 
@@ -107,6 +135,14 @@ const Dashboard = (function () {
     document.getElementById('kpi-onhand').textContent = Utils.formatCurrency(agg.onHand, currency);
     document.getElementById('kpi-active').textContent = String(agg.active);
     document.getElementById('kpi-completed').textContent = String(agg.completed);
+    document.getElementById('kpi-pipeline').textContent = Utils.formatCurrency(agg.totalPipeline, currency);
+    const collectionRate = agg.totalTotalPay > 0
+      ? Utils.round2(agg.totalCashIn / agg.totalTotalPay * 100) : 0;
+    document.getElementById('kpi-collection-rate').textContent = collectionRate + '%';
+    document.getElementById('kpi-total-jobs').textContent = String(agg.totalJobs);
+    const avgJobValue = agg.totalJobs > 0
+      ? Utils.round2(agg.totalTotalPay / agg.totalJobs) : 0;
+    document.getElementById('kpi-avg-job').textContent = Utils.formatCurrency(avgJobValue, currency);
   }
 
   function renderCashFlowChart(agg, palette, currency) {
@@ -293,6 +329,98 @@ const Dashboard = (function () {
     });
   }
 
+  function renderFreelancerChart(agg, palette, currency) {
+    const ctx = document.getElementById('chart-freelancers');
+    if (!ctx) return;
+    const entries = Object.entries(agg.freelancerAgg)
+      .sort((a, b) => (b[1].paid + b[1].owed) - (a[1].paid + a[1].owed));
+    const labels = entries.map(([name]) => name);
+    const paid   = entries.map(([, v]) => Utils.round2(v.paid));
+    const owed   = entries.map(([, v]) => Utils.round2(v.owed));
+    if (charts.freelancers) charts.freelancers.destroy();
+    charts.freelancers = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Paid', data: paid, backgroundColor: palette.success + 'cc', borderColor: palette.success, borderWidth: 1, borderRadius: 4 },
+          { label: 'Still Owed', data: owed, backgroundColor: palette.warning + 'cc', borderColor: palette.warning, borderWidth: 1, borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, boxWidth: 10 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Utils.formatCurrency(ctx.raw, currency)}` } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: palette.grid }, ticks: { callback: v => Utils.formatNumber(v) } }
+        }
+      }
+    });
+  }
+
+  function renderReceivablesChart(agg, palette, currency) {
+    const ctx = document.getElementById('chart-receivables');
+    if (!ctx) return;
+    const entries = Object.entries(agg.clientReceivables)
+      .sort((a, b) => (b[1].cashIn + b[1].remaining) - (a[1].cashIn + a[1].remaining))
+      .slice(0, 8);
+    const labels   = entries.map(([name]) => name);
+    const received = entries.map(([, v]) => Utils.round2(v.cashIn));
+    const pending  = entries.map(([, v]) => Utils.round2(v.remaining));
+    if (charts.receivables) charts.receivables.destroy();
+    charts.receivables = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Received', data: received, backgroundColor: palette.success + 'cc', borderColor: palette.success, borderWidth: 1, borderRadius: 0 },
+          { label: 'Pending',  data: pending,  backgroundColor: palette.warning + 'cc', borderColor: palette.warning,  borderWidth: 1, borderRadius: 0 }
+        ]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, boxWidth: 10 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Utils.formatCurrency(ctx.raw, currency)}` } }
+        },
+        scales: {
+          x: { stacked: true, grid: { color: palette.grid }, ticks: { callback: v => Utils.formatNumber(v) } },
+          y: { stacked: true, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function renderTopJobsChart(agg, palette, currency) {
+    const ctx = document.getElementById('chart-top-jobs');
+    if (!ctx) return;
+    const entries = agg.jobValues.slice().sort((a, b) => b.totalPay - a.totalPay).slice(0, 8);
+    const labels = entries.map(e => e.label);
+    const data   = entries.map(e => Utils.round2(e.totalPay));
+    if (charts.topJobs) charts.topJobs.destroy();
+    charts.topJobs = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Total Pay', data, backgroundColor: palette.colors, borderRadius: 6, borderSkipped: false }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => Utils.formatCurrency(ctx.raw, currency) } }
+        },
+        scales: {
+          x: { grid: { color: palette.grid }, ticks: { callback: v => Utils.formatNumber(v) } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
   function render() {
     const settings = Storage.getSettings();
     const currency = settings.currency;
@@ -309,6 +437,9 @@ const Dashboard = (function () {
     renderSplitChart(agg, palette, currency);
     renderMethodChart('chart-methods-in', agg.incomingByMethod, palette, currency, 'methodsIn');
     renderMethodChart('chart-methods-out', agg.outgoingByMethod, palette, currency, 'methodsOut');
+    renderFreelancerChart(agg, palette, currency);
+    renderReceivablesChart(agg, palette, currency);
+    renderTopJobsChart(agg, palette, currency);
   }
 
   return { init, render };
