@@ -71,7 +71,7 @@ const JobsTable = (function () {
     return 'empty';
   }
 
-  function rowHTML(j, currency) {
+  function rowHTML(j, currency, index) {
     const fmt = n => Utils.formatCurrency(n, currency);
     const totalPct = j.totalPay > 0 ? Math.min(100, (j.cashIn / j.totalPay) * 100) : 0;
     const sharePct = j.faresShare > 0 ? Math.min(100, (j.faresReceived / j.faresShare) * 100) : 0;
@@ -93,6 +93,7 @@ const JobsTable = (function () {
 
     return `
       <tr data-id="${j.id}">
+        <td class="num" style="color:var(--text-muted);font-size:11px">${index + 1}</td>
         <td class="col-job">${Utils.escapeHTML(j.jobName)}</td>
         <td class="col-desc">${desc}</td>
         <td>${Utils.escapeHTML(j.clientName)}</td>
@@ -169,7 +170,7 @@ const JobsTable = (function () {
     }
 
     empty.hidden = true;
-    tbody.innerHTML = sorted.map(j => rowHTML(j, currency)).join('');
+    tbody.innerHTML = sorted.map((j, i) => rowHTML(j, currency, i)).join('');
 
     tbody.querySelectorAll('tr').forEach(tr => {
       const id = tr.dataset.id;
