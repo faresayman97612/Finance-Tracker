@@ -68,6 +68,10 @@ const Dashboard = (function () {
         technicalReceived += j.faresReceived * (j.faresTechnicalPercent / totalPct);
       }
 
+      // Total Fares earns from this client (full contract value × Fares %)
+      const c = j.clientName || 'Unknown';
+      earningsByClient[c] = (earningsByClient[c] || 0) + j.faresShare;
+
       for (const p of (j.payments || [])) {
         const k = Utils.monthKey(p.date);
         if (!k) continue;
@@ -75,10 +79,6 @@ const Dashboard = (function () {
         if (p.direction === 'incoming') {
           cashInByMonth[k] = (cashInByMonth[k] || 0) + amt;
           incomingByMethod[p.method] = (incomingByMethod[p.method] || 0) + amt;
-          // Fares' share of this payment is what counts as "earnings by client"
-          const faresShareOfPayment = amt * j.faresTotalPercent / 100;
-          const c = j.clientName || 'Unknown';
-          earningsByClient[c] = (earningsByClient[c] || 0) + faresShareOfPayment;
         } else if (p.direction === 'outgoing') {
           cashOutByMonth[k] = (cashOutByMonth[k] || 0) + amt;
           outgoingByMethod[p.method] = (outgoingByMethod[p.method] || 0) + amt;
