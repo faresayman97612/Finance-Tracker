@@ -39,10 +39,9 @@ const Auth = (function () {
       await waitForSDK();
       app = window.FB.initializeApp(window.FIREBASE_CONFIG);
       authInst = window.FB.getAuth(app);
-      firestore = window.FB.getFirestore(app);
-      try {
-        await window.FB.enableIndexedDbPersistence(firestore);
-      } catch (e) { /* persistence already enabled or not supported */ }
+      firestore = window.FB.initializeFirestore(app, {
+        localCache: window.FB.persistentLocalCache()
+      });
       // Pick up the result after Google redirects back to the app
       try {
         await window.FB.getRedirectResult(authInst);

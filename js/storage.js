@@ -89,7 +89,11 @@ const Storage = (function () {
       }
     } catch (e) {
       console.error('Firestore load failed', e);
-      Utils.toast('Could not load from cloud — using local cache', 'error', 3000);
+      if (e && e.code === 'unavailable') {
+        Utils.toast('Firestore not reachable — check Firebase Console has Firestore enabled', 'error', 5000);
+      } else {
+        Utils.toast('Could not load from cloud — using local cache', 'error', 3000);
+      }
       localLoad();
     }
   }
