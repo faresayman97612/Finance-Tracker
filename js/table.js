@@ -91,6 +91,23 @@ const JobsTable = (function () {
     const recTotalCls = j.cashIn > 0 ? 'amount-pos' : 'amount-zero';
     const recFaresCls = j.faresReceived > 0 ? 'amount-pos' : 'amount-zero';
 
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dlCell = (() => {
+      if (!j.deadlineDate) return '<span class="amount-zero">—</span>';
+      const [yr, mo, dy] = j.deadlineDate.split('-').map(Number);
+      const formatted = `${String(dy).padStart(2,'0')} ${MONTHS[mo-1]} ${yr}`;
+      let colorAttr = 'class="amount-zero"';
+      if (j.deadlineStatus === 'done')     colorAttr = 'class="amount-pos"';
+      if (j.deadlineStatus === 'due-soon') colorAttr = 'class="amount-pending"';
+      if (j.deadlineStatus === 'overdue')  colorAttr = 'style="color:var(--danger);font-weight:500"';
+      let hint = '';
+      if (j.deadlineStatus === 'overdue')
+        hint = ` <span class="dim" style="font-size:10px">(${Math.abs(j.daysToDeadline)}d ago)</span>`;
+      else if (j.deadlineStatus === 'due-soon')
+        hint = ` <span class="dim" style="font-size:10px">(${j.daysToDeadline}d)</span>`;
+      return `<span ${colorAttr}>${formatted}</span>${hint}`;
+    })();
+
     return `
       <tr data-id="${j.id}">
         <td class="num" style="color:var(--text-muted);font-size:11px">${index + 1}</td>
@@ -115,6 +132,7 @@ const JobsTable = (function () {
           </div>
         </td>
         <td class="num ${remFaresCls}">${fmt(j.faresRemaining)}</td>
+        <td>${dlCell}</td>
         <td>
           <div class="row-actions">
             <button class="row-action" data-action="payments" title="Payments" aria-label="Payments">

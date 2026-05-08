@@ -36,6 +36,7 @@ const Jobs = (function () {
       status: 'active',
       createdAt: Utils.nowISO(),
       updatedAt: Utils.nowISO(),
+      deadlineDate: data.deadlineDate ? String(data.deadlineDate).trim() : '',
       payments: []
     };
     if (data.prepayClient && Number(data.prepayClient) > 0) {
@@ -64,6 +65,7 @@ const Jobs = (function () {
     if ('faresTechnicalPercent' in data) {
       job.faresTechnicalPercent = Utils.clamp(data.faresTechnicalPercent, 0, MAX_TECH_PERCENT);
     }
+    if ('deadlineDate' in data) job.deadlineDate = data.deadlineDate ? String(data.deadlineDate).trim() : '';
     job.updatedAt = Utils.nowISO();
     persist();
     return job;
@@ -174,6 +176,20 @@ const Jobs = (function () {
     if (totalPay > 0 && cashIn >= totalPay) paymentStatus = 'paid';
     else if (cashIn > 0) paymentStatus = 'partial';
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let daysToDeadline = null;
+    let deadlineStatus = 'none';
+    if (job.deadlineDate) {
+      const [y, m, d] = job.deadlineDate.split('-').map(Number);
+      const dl = new Date(y, m - 1, d);
+      daysToDeadline = Math.round((dl - today) / 86400000);
+      if (paymentStatus === 'paid') deadlineStatus = 'done';
+      else if (daysToDeadline < 0) deadlineStatus = 'overdue';
+      else if (daysToDeadline <= 7) deadlineStatus = 'due-soon';
+      else deadlineStatus = 'ok';
+    }
+
     return {
       ...job,
       businessAmount,
@@ -195,7 +211,9 @@ const Jobs = (function () {
       owedToTeamTotal,
       incomingByMethod,
       outgoingByMethod,
-      paymentStatus
+      paymentStatus,
+      daysToDeadline,
+      deadlineStatus
     };
   }
 

@@ -34,6 +34,7 @@
 .kpi-value.success { color: var(--success); }
 .kpi-value.warning { color: var(--warning); }
 .kpi-value.accent  { color: var(--accent); }
+.kpi-value.danger  { color: var(--danger); }
 .kpi-hint {
   font-size: 11px;
   color: var(--text-muted);

@@ -120,6 +120,21 @@
           <div class="kpi-value" id="kpi-avg-job">—</div>
           <div class="kpi-hint">Total pay per job</div>
         </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Overdue jobs</div>
+          <div class="kpi-value danger" id="kpi-overdue">—</div>
+          <div class="kpi-hint">Past deadline, unpaid</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Due soon</div>
+          <div class="kpi-value warning" id="kpi-due-soon">—</div>
+          <div class="kpi-hint">Deadline within 7 days</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total paid out</div>
+          <div class="kpi-value" id="kpi-team-payout">—</div>
+          <div class="kpi-hint">Paid to freelancers (all time)</div>
+        </div>
       </div>
 
       <div class="charts-grid">
@@ -158,6 +173,18 @@
         <div class="chart-card">
           <h3>Top jobs by value</h3>
           <div class="chart-wrap"><canvas id="chart-top-jobs"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Deadline status</h3>
+          <div class="chart-wrap"><canvas id="chart-deadline"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Jobs created / month</h3>
+          <div class="chart-wrap"><canvas id="chart-jobs-month"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Fares earnings / month</h3>
+          <div class="chart-wrap"><canvas id="chart-fares-monthly"></canvas></div>
         </div>
       </div>
     </section>
@@ -198,6 +225,7 @@
               <th data-sort="remainingFromClient" class="num">Remaining Total</th>
               <th data-sort="faresReceived" class="num">Received Fares</th>
               <th data-sort="faresRemaining" class="num">Remaining Fares</th>
+              <th data-sort="deadlineDate">Deadline</th>
               <th></th>
             </tr>
           </thead>
@@ -246,6 +274,13 @@
           <label class="field">
             <span>Total Pay (E£) <em>*</em></span>
             <input type="number" id="f-totalPay" class="input" min="0" step="0.01" required>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span>Deadline Date <small>(optional)</small></span>
+            <input type="date" id="f-deadlineDate" class="input">
           </label>
         </div>
 

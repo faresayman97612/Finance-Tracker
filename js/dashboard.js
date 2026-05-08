@@ -28,7 +28,8 @@ const Dashboard = (function () {
       success: Utils.readCSSVar('--success'),
       warning: Utils.readCSSVar('--warning'),
       danger: Utils.readCSSVar('--danger'),
-      accent: Utils.readCSSVar('--accent')
+      accent: Utils.readCSSVar('--accent'),
+      info: Utils.readCSSVar('--chart-5')
     };
   }
 
@@ -54,6 +55,10 @@ const Dashboard = (function () {
     const freelancerAgg = {};
     const clientReceivables = {};
     const jobValues = [];
+    let overdueCount = 0, dueSoonCount = 0, totalPaidOut = 0;
+    const dlStatus = { overdue: 0, 'due-soon': 0, ok: 0, done: 0, none: 0 };
+    const jobsPerMonth = {};
+    const faresInByMonth = {};
 
     for (const j of computed) {
       earned += j.faresReceived;
@@ -93,6 +98,14 @@ const Dashboard = (function () {
 
       jobValues.push({ label: `${j.jobName} (${j.clientName || 'Unknown'})`, totalPay: j.totalPay });
 
+      if (j.deadlineStatus === 'overdue') overdueCount++;
+      else if (j.deadlineStatus === 'due-soon') dueSoonCount++;
+      const ds = j.deadlineStatus || 'none';
+      dlStatus[ds] = (dlStatus[ds] || 0) + 1;
+      totalPaidOut += j.cashOut;
+      const jobMonth = j.createdAt ? j.createdAt.slice(0, 7) : null;
+      if (jobMonth) jobsPerMonth[jobMonth] = (jobsPerMonth[jobMonth] || 0) + 1;
+
       for (const p of (j.payments || [])) {
         const k = Utils.monthKey(p.date);
         if (!k) continue;
@@ -100,6 +113,8 @@ const Dashboard = (function () {
         if (p.direction === 'incoming') {
           cashInByMonth[k] = (cashInByMonth[k] || 0) + amt;
           incomingByMethod[p.method] = (incomingByMethod[p.method] || 0) + amt;
+          const faresContrib = Utils.round2(amt * j.faresTotalPercent / 100);
+          faresInByMonth[k] = Utils.round2((faresInByMonth[k] || 0) + faresContrib);
         } else if (p.direction === 'outgoing') {
           cashOutByMonth[k] = (cashOutByMonth[k] || 0) + amt;
           outgoingByMethod[p.method] = (outgoingByMethod[p.method] || 0) + amt;
@@ -124,7 +139,13 @@ const Dashboard = (function () {
       totalJobs:      computed.length,
       freelancerAgg,
       clientReceivables,
-      jobValues
+      jobValues,
+      overdueCount,
+      dueSoonCount,
+      totalPaidOut: Utils.round2(totalPaidOut),
+      dlStatus,
+      jobsPerMonth,
+      faresInByMonth
     };
   }
 
@@ -143,6 +164,9 @@ const Dashboard = (function () {
     const avgJobValue = agg.totalJobs > 0
       ? Utils.round2(agg.totalTotalPay / agg.totalJobs) : 0;
     document.getElementById('kpi-avg-job').textContent = Utils.formatCurrency(avgJobValue, currency);
+    document.getElementById('kpi-overdue').textContent     = String(agg.overdueCount);
+    document.getElementById('kpi-due-soon').textContent    = String(agg.dueSoonCount);
+    document.getElementById('kpi-team-payout').textContent = Utils.formatCurrency(agg.totalPaidOut, currency);
   }
 
   function renderCashFlowChart(agg, palette, currency) {
@@ -421,6 +445,74 @@ const Dashboard = (function () {
     });
   }
 
+  function renderDeadlineChart(agg, palette) {
+    const ctx = document.getElementById('chart-deadline');
+    if (!ctx) return;
+    const labels = ['Overdue', 'Due soon', 'On track', 'Done', 'No deadline'];
+    const data = [
+      agg.dlStatus.overdue || 0, agg.dlStatus['due-soon'] || 0,
+      agg.dlStatus.ok || 0, agg.dlStatus.done || 0, agg.dlStatus.none || 0
+    ];
+    const colors = [palette.danger, palette.warning, palette.success, palette.accent, palette.grid];
+    if (charts.deadline) charts.deadline.destroy();
+    charts.deadline = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: palette.surface, borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '65%',
+        plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 10 } } }
+      }
+    });
+  }
+
+  function renderJobsPerMonthChart(agg, palette) {
+    const ctx = document.getElementById('chart-jobs-month');
+    if (!ctx) return;
+    const months = Object.keys(agg.jobsPerMonth).sort().slice(-12);
+    const labels = months.map(Utils.monthLabel);
+    const data = months.map(k => agg.jobsPerMonth[k] || 0);
+    if (charts.jobsMonth) charts.jobsMonth.destroy();
+    charts.jobsMonth = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Jobs created', data, backgroundColor: palette.info + 'cc', borderColor: palette.info, borderWidth: 1, borderRadius: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.raw} job${ctx.raw !== 1 ? 's' : ''}` } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: palette.grid }, ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } }
+        }
+      }
+    });
+  }
+
+  function renderFaresMonthlyChart(agg, palette, currency) {
+    const ctx = document.getElementById('chart-fares-monthly');
+    if (!ctx) return;
+    const months = Object.keys(agg.faresInByMonth).sort().slice(-12);
+    const labels = months.map(Utils.monthLabel);
+    const data = months.map(k => agg.faresInByMonth[k] || 0);
+    if (charts.faresMonthly) charts.faresMonthly.destroy();
+    charts.faresMonthly = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Fares earnings', data, backgroundColor: palette.success + 'cc', borderColor: palette.success, borderWidth: 1, borderRadius: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => Utils.formatCurrency(ctx.raw, currency) } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: palette.grid }, ticks: { callback: v => Utils.formatNumber(v) } }
+        }
+      }
+    });
+  }
+
   function render() {
     const settings = Storage.getSettings();
     const currency = settings.currency;
@@ -440,6 +532,9 @@ const Dashboard = (function () {
     renderFreelancerChart(agg, palette, currency);
     renderReceivablesChart(agg, palette, currency);
     renderTopJobsChart(agg, palette, currency);
+    renderDeadlineChart(agg, palette);
+    renderJobsPerMonthChart(agg, palette);
+    renderFaresMonthlyChart(agg, palette, currency);
   }
 
   return { init, render };

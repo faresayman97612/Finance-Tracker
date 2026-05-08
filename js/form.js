@@ -31,6 +31,7 @@ const JobForm = (function () {
     els.prepayClient = document.getElementById('f-prepay-client');
     els.prepayFares = document.getElementById('f-prepay-fares');
     els.clientList = document.getElementById('client-list');
+    els.deadlineDate = document.getElementById('f-deadlineDate');
   }
 
   function init() {
@@ -191,6 +192,7 @@ const JobForm = (function () {
       els.techNum.value = displayTech;
       els.prepayClient.value = 0;
       els.prepayFares.value = 0;
+      els.deadlineDate.value = job.deadlineDate || '';
       const details = els.prepayClient.closest('details');
       if (details) details.hidden = true;
       if (job.freelancers.length === 0) {
@@ -208,6 +210,7 @@ const JobForm = (function () {
       els.techNum.value = 100;
       els.prepayClient.value = 0;
       els.prepayFares.value = 0;
+      els.deadlineDate.value = '';
       const details = els.prepayClient.closest('details');
       if (details) details.hidden = false;
       selectedFreelancers = [];
@@ -232,7 +235,8 @@ const JobForm = (function () {
       clientName: els.clientName.value.trim(),
       freelancers: mode === 'team' ? selectedFreelancers.slice() : [],
       totalPay: Number(els.totalPay.value),
-      faresTechnicalPercent: Utils.round2(Utils.clamp(Number(els.tech.value), 0, 100) * 0.6)
+      faresTechnicalPercent: Utils.round2(Utils.clamp(Number(els.tech.value), 0, 100) * 0.6),
+      deadlineDate: els.deadlineDate.value || ''
     };
     if (!data.jobName) { Utils.toast('Job name is required', 'error'); return; }
     if (!data.clientName) { Utils.toast('Client name is required', 'error'); return; }
