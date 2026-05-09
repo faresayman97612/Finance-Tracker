@@ -31,14 +31,14 @@
     // Firebase SDK (v10 modular) — exposed as window.FB for non-module scripts
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     import {
       initializeFirestore, persistentLocalCache, doc, getDoc, setDoc, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     window.FB = {
       initializeApp,
-      getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       initializeFirestore, persistentLocalCache, doc, getDoc, setDoc, onSnapshot
     };
     window.dispatchEvent(new Event('fb-sdk-ready'));

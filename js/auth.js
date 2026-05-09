@@ -42,12 +42,6 @@ const Auth = (function () {
       firestore = window.FB.initializeFirestore(app, {
         localCache: window.FB.persistentLocalCache()
       });
-      // Pick up the result after Google redirects back to the app
-      try {
-        await window.FB.getRedirectResult(authInst);
-      } catch (e) {
-        console.error('Redirect sign-in error', e);
-      }
       window.FB.onAuthStateChanged(authInst, async (user) => {
         if (user) {
           if (user.email === window.FIREBASE_ALLOWED_EMAIL) {
@@ -81,7 +75,7 @@ const Auth = (function () {
     try {
       const provider = new window.FB.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await window.FB.signInWithRedirect(authInst, provider);
+      await window.FB.signInWithPopup(authInst, provider);
     } catch (err) {
       console.error('Sign-in failed', err);
       Utils.toast('Sign-in failed: ' + (err.message || err.code), 'error', 3500);
