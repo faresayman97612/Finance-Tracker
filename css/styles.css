@@ -44,6 +44,14 @@ p { margin: 0; }
   letter-spacing: 0.5px;
 }
 .brand-name { font-weight: 600; font-size: 15px; }
+.brand-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+[data-theme="light"] .brand-logo {
+  filter: brightness(0);
+}
 
 .tabs {
   display: flex;
