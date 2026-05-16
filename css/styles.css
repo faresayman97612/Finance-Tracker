@@ -44,13 +44,18 @@ p { margin: 0; }
   letter-spacing: 0.5px;
 }
 .brand-name { font-weight: 600; font-size: 15px; }
-.brand-logo {
-  height: 72px;
-  width: auto;
-  display: block;
+.brand-wordmark {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
 }
-[data-theme="light"] .brand-logo {
-  filter: brightness(0);
+.brand-ai {
+  background: linear-gradient(90deg, #22d3ee, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
 }
 
 .tabs {
