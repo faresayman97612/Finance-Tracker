@@ -490,6 +490,88 @@ const Dashboard = (function () {
     });
   }
 
+  function renderPaymentReminderChart(agg, palette, currency) {
+    const ctx = document.getElementById('chart-payment-reminder');
+    if (!ctx) return;
+
+    const entries = Object.entries(agg.clientReceivables)
+      .map(([name, v]) => ({ name, remaining: Utils.round2(v.remaining), cashIn: Utils.round2(v.cashIn) }))
+      .filter(e => e.remaining > 0 || e.cashIn > 0)
+      .sort((a, b) => b.remaining - a.remaining)
+      .slice(0, 10);
+
+    if (charts.paymentReminder) charts.paymentReminder.destroy();
+
+    if (entries.length === 0) {
+      charts.paymentReminder = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: ['No pending payments'], datasets: [{ data: [0], backgroundColor: [palette.grid], borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { display: false }, y: { display: false } }
+        }
+      });
+      return;
+    }
+
+    const labels    = entries.map(e => e.name);
+    const remaining = entries.map(e => e.remaining);
+    const settled   = entries.map(e => e.cashIn);
+
+    // Color each bar: danger if remaining > 0, success-tinted if fully settled
+    const barColors = entries.map(e =>
+      e.remaining > 0 ? palette.danger + 'cc' : palette.success + 'cc'
+    );
+    const barBorder = entries.map(e =>
+      e.remaining > 0 ? palette.danger : palette.success
+    );
+
+    charts.paymentReminder = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Still Owed',
+            data: remaining,
+            backgroundColor: barColors,
+            borderColor: barBorder,
+            borderWidth: 1,
+            borderRadius: 5,
+            borderSkipped: false
+          },
+          {
+            label: 'Received',
+            data: settled,
+            backgroundColor: palette.success + '44',
+            borderColor: palette.success,
+            borderWidth: 1,
+            borderRadius: 5,
+            borderSkipped: false
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, boxWidth: 10 } },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${Utils.formatCurrency(ctx.raw, currency)}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: palette.grid }, ticks: { callback: v => Utils.formatNumber(v) } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
   function renderFaresMonthlyChart(agg, palette, currency) {
     const ctx = document.getElementById('chart-fares-monthly');
     if (!ctx) return;
@@ -536,6 +618,7 @@ const Dashboard = (function () {
     renderDeadlineChart(agg, palette);
     renderJobsPerMonthChart(agg, palette);
     renderFaresMonthlyChart(agg, palette, currency);
+    renderPaymentReminderChart(agg, palette, currency);
   }
 
   return { init, render };

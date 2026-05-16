@@ -65,6 +65,16 @@
   position: relative;
   height: 260px;
 }
+.chart-wrap--tall { height: 320px; }
+.chart-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: -6px 0 10px;
+}
+.chart-card--reminder { grid-column: span 2; }
+@media (max-width: 800px) {
+  .chart-card--reminder { grid-column: span 1; }
+}
 
 /* Jobs toolbar */
 
