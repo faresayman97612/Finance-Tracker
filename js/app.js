@@ -57,6 +57,7 @@ const App = (function () {
     });
     if (name === 'dashboard') Dashboard.render();
     if (name === 'jobs') JobsTable.render();
+    if (name === 'payments') PaymentLog.render();
   }
 
   function confirm(title, message, onYes) {
@@ -91,6 +92,7 @@ const App = (function () {
     JobForm.init();
     JobsTable.init();
     Payments.init();
+    PaymentLog.init();
     Dashboard.init();
     SettingsUI.init();
     init();
