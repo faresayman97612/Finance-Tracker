@@ -54,6 +54,7 @@
       <button class="tab active" data-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
       <button class="tab" data-tab="jobs" role="tab" aria-selected="false">Jobs</button>
       <button class="tab" data-tab="payments" role="tab" aria-selected="false">Payments</button>
+      <button class="tab" data-tab="team" role="tab" aria-selected="false">Team</button>
     </nav>
     <div class="header-actions">
       <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
@@ -135,6 +136,26 @@
           <div class="kpi-value" id="kpi-team-payout">—</div>
           <div class="kpi-hint">Paid to freelancers (all time)</div>
         </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tasks open</div>
+          <div class="kpi-value" id="kpi-tasks-open">—</div>
+          <div class="kpi-hint">To-do + in-progress</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tasks due this week</div>
+          <div class="kpi-value warning" id="kpi-tasks-due-week">—</div>
+          <div class="kpi-hint">Within next 7 days</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tasks overdue</div>
+          <div class="kpi-value danger" id="kpi-tasks-overdue">—</div>
+          <div class="kpi-hint">Past due date</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Team workload</div>
+          <div class="kpi-value accent" id="kpi-team-load">—</div>
+          <div class="kpi-hint">Active assignees</div>
+        </div>
       </div>
 
       <div class="charts-grid">
@@ -185,6 +206,16 @@
         <div class="chart-card">
           <h3>Fares earnings / month</h3>
           <div class="chart-wrap"><canvas id="chart-fares-monthly"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Pipeline funnel</h3>
+          <p class="chart-subtitle">Jobs by current stage</p>
+          <div class="chart-wrap"><canvas id="chart-pipeline-funnel"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Team workload</h3>
+          <p class="chart-subtitle">Open tasks per freelancer</p>
+          <div class="chart-wrap"><canvas id="chart-team-workload"></canvas></div>
         </div>
         <div class="chart-card chart-card--reminder">
           <h3>Payment reminders</h3>
@@ -284,6 +315,18 @@
         </div>
       </div>
     </section>
+
+    <section id="view-team" class="view">
+      <div class="team-toolbar">
+        <h3 class="team-title">Team members</h3>
+        <p class="team-subtitle">Click a card to see active jobs, open tasks, payouts, and history.</p>
+      </div>
+      <div class="team-grid" id="team-grid"></div>
+      <div class="empty-state" id="team-empty" hidden>
+        <div class="empty-emoji">👥</div>
+        <p>No freelancers yet. Add them in <strong>Settings → Freelancers</strong>.</p>
+      </div>
+    </section>
   </main>
 
   <!-- Add/Edit Job Modal -->
@@ -330,11 +373,17 @@
             <input type="date" id="f-deadlineDate" class="input">
           </label>
           <label class="field">
-            <span>Work status</span>
-            <div class="mode-toggle" role="radiogroup" style="margin-top:4px">
-              <button type="button" class="mode-btn active" data-work="in-progress" role="radio" aria-checked="true">In Progress</button>
-              <button type="button" class="mode-btn" data-work="delivered" role="radio" aria-checked="false">Delivered</button>
-            </div>
+            <span>Stage</span>
+            <select id="f-stage" class="input">
+              <option value="lead">Lead</option>
+              <option value="proposal">Proposal</option>
+              <option value="accepted">Accepted</option>
+              <option value="in-progress" selected>In Progress</option>
+              <option value="review">Review</option>
+              <option value="delivered">Delivered</option>
+              <option value="paid">Paid</option>
+              <option value="closed">Closed</option>
+            </select>
           </label>
         </div>
 
@@ -380,6 +429,18 @@
             <strong id="calc-total">E£ 0</strong>
           </div>
         </div>
+
+        <details class="form-details" id="tasks-details">
+          <summary>Tasks &amp; milestones <span class="dim" id="tasks-summary-count"></span></summary>
+          <div id="tasks-editor" class="tasks-editor"></div>
+          <button type="button" class="btn btn-secondary" id="add-task-btn" style="margin-top:8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add task
+          </button>
+          <p class="dim" style="font-size:11px;margin-top:6px">
+            Tasks with a value override equal-split payouts. Tasks without a value fall back to equal share.
+          </p>
+        </details>
 
         <details class="form-details">
           <summary>Already received from client? (optional)</summary>
@@ -473,7 +534,29 @@
           </div>
         </div>
         <div class="payments-list" id="payments-list"></div>
+
+        <details class="form-details activity-section" id="activity-section" style="margin-top:18px">
+          <summary>Activity log</summary>
+          <div class="activity-add">
+            <input type="text" id="activity-note-input" class="input" placeholder="Add a note (call with client, file delivered…)">
+            <button type="button" class="btn btn-secondary" id="activity-note-btn">Add note</button>
+          </div>
+          <div class="activity-list" id="activity-list"></div>
+        </details>
       </div>
+    </div>
+  </div>
+
+  <!-- Freelancer detail modal -->
+  <div class="modal-backdrop" id="freelancer-modal" hidden>
+    <div class="modal modal-lg" role="dialog" aria-labelledby="freelancer-modal-title">
+      <header class="modal-header">
+        <h2 id="freelancer-modal-title">Freelancer</h2>
+        <button class="icon-btn modal-close" data-close="freelancer-modal" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="modal-body" id="freelancer-modal-body"></div>
     </div>
   </div>
 
@@ -611,6 +694,7 @@
   <script src="js/payments.js"></script>
   <script src="js/paymentlog.js"></script>
   <script src="js/dashboard.js"></script>
+  <script src="js/team.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/app.js"></script>
 </body>

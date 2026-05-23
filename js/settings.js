@@ -1,6 +1,15 @@
 /* settings.js — drawer for account/theme/currency/freelancers/data */
 
 const SettingsUI = (function () {
+  const ROLE_OPTIONS = [
+    { value: '',          label: '— Role —' },
+    { value: 'designer',  label: 'Designer' },
+    { value: 'dev',       label: 'Developer' },
+    { value: 'pm',        label: 'Project manager' },
+    { value: 'qa',        label: 'QA' },
+    { value: 'other',     label: 'Other' }
+  ];
+
   const els = {};
 
   function init() {
@@ -91,38 +100,141 @@ const SettingsUI = (function () {
       b.classList.toggle('active', b.dataset.themePick === Theme.getPref());
     });
     els.currency.value = settings.currency;
+    renderFreelancers();
+  }
+
+  function renderFreelancers() {
+    const settings = Storage.getSettings();
     els.freelancers.innerHTML = '';
-    if (settings.freelancers.length === 0) {
+    els.freelancers.className = 'freelancer-editor';
+
+    if (!settings.freelancers || settings.freelancers.length === 0) {
       const empty = document.createElement('span');
       empty.style.cssText = 'color:var(--text-muted);font-size:12px;';
       empty.textContent = 'No freelancers yet.';
       els.freelancers.appendChild(empty);
-    } else {
-      settings.freelancers.forEach(name => {
-        const chip = document.createElement('span');
-        chip.className = 'chip chip-removable';
-        chip.innerHTML = `${Utils.escapeHTML(name)}<span class="x">×</span>`;
-        chip.querySelector('.x').addEventListener('click', () => {
-          const s = Storage.getSettings();
-          s.freelancers = s.freelancers.filter(f => f !== name);
-          Storage.saveSettings(s);
-          refresh();
-        });
-        els.freelancers.appendChild(chip);
-      });
+      return;
     }
+
+    settings.freelancers.forEach(f => {
+      els.freelancers.appendChild(renderFreelancerRow(f));
+    });
+  }
+
+  function renderFreelancerRow(f) {
+    const row = document.createElement('div');
+    row.className = 'fl-row' + (f.active === false ? ' inactive' : '');
+    row.dataset.id = f.id;
+
+    const roleOptions = ROLE_OPTIONS.map(o =>
+      `<option value="${o.value}" ${o.value === (f.role || '') ? 'selected' : ''}>${Utils.escapeHTML(o.label)}</option>`
+    ).join('');
+
+    row.innerHTML = `
+      <div class="fl-row-main">
+        <input class="input fl-name" type="text" value="${Utils.escapeHTML(f.name || '')}" placeholder="Name" aria-label="Name">
+        <select class="input fl-role" aria-label="Role">${roleOptions}</select>
+        <label class="fl-active" title="Active">
+          <input type="checkbox" class="fl-active-cb" ${f.active === false ? '' : 'checked'}>
+          <span>Active</span>
+        </label>
+        <button type="button" class="row-action danger fl-del" title="Delete" aria-label="Delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+      <details class="fl-row-more">
+        <summary>More options</summary>
+        <div class="fl-row-extra">
+          <label class="field">
+            <span>Default share %</span>
+            <input class="input fl-share" type="number" min="0" max="100" step="0.5" value="${f.defaultSharePercent != null ? f.defaultSharePercent : ''}" placeholder="—">
+          </label>
+          <label class="field">
+            <span>Preferred method</span>
+            <select class="input fl-method">
+              <option value="">—</option>
+              ${['Telda','Instapay','VodafoneCash','Cash'].map(m => `<option value="${m}" ${m === (f.preferredMethod || '') ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input class="input fl-email" type="email" value="${Utils.escapeHTML(f.email || '')}" placeholder="—">
+          </label>
+          <label class="field">
+            <span>Phone</span>
+            <input class="input fl-phone" type="text" value="${Utils.escapeHTML(f.phone || '')}" placeholder="—">
+          </label>
+          <label class="field" style="grid-column:1 / -1">
+            <span>Notes</span>
+            <input class="input fl-notes" type="text" value="${Utils.escapeHTML(f.notes || '')}" placeholder="—">
+          </label>
+        </div>
+      </details>
+    `;
+
+    // Wire up inputs
+    const onChange = () => saveRow(row);
+    row.querySelectorAll('.fl-name, .fl-role, .fl-share, .fl-method, .fl-email, .fl-phone, .fl-notes')
+      .forEach(el => el.addEventListener('change', onChange));
+    row.querySelector('.fl-active-cb').addEventListener('change', onChange);
+
+    row.querySelector('.fl-del').addEventListener('click', () => {
+      const name = row.querySelector('.fl-name').value.trim() || '(unnamed)';
+      App.confirm(`Remove "${name}"?`, 'Existing job assignments keep showing the name. They can be reassigned later.', () => {
+        removeFreelancer(f.id);
+      });
+    });
+
+    return row;
+  }
+
+  function saveRow(row) {
+    const id = row.dataset.id;
+    const settings = Storage.getSettings();
+    const f = (settings.freelancers || []).find(x => x.id === id);
+    if (!f) return;
+    f.name = row.querySelector('.fl-name').value.trim();
+    f.role = row.querySelector('.fl-role').value;
+    f.defaultSharePercent = row.querySelector('.fl-share').value === ''
+      ? null : Number(row.querySelector('.fl-share').value);
+    f.preferredMethod = row.querySelector('.fl-method').value;
+    f.email = row.querySelector('.fl-email').value.trim();
+    f.phone = row.querySelector('.fl-phone').value.trim();
+    f.notes = row.querySelector('.fl-notes').value.trim();
+    f.active = row.querySelector('.fl-active-cb').checked;
+    Storage.saveSettings(settings);
+    row.classList.toggle('inactive', f.active === false);
+    JobsTable.render();
+    Dashboard.render();
+    if (typeof Team !== 'undefined' && Team.render) Team.render();
   }
 
   function addFreelancer() {
     const name = els.newFreelancer.value.trim();
     if (!name) return;
     const settings = Storage.getSettings();
-    if (!settings.freelancers.includes(name)) {
-      settings.freelancers.push(name);
-      Storage.saveSettings(settings);
+    if (!Array.isArray(settings.freelancers)) settings.freelancers = [];
+    if (settings.freelancers.some(f => f.name === name)) {
+      Utils.toast('Freelancer already exists', 'info', 1500);
+      els.newFreelancer.value = '';
+      return;
     }
+    const newF = { id: Utils.uuid(), name, role: '', active: true };
+    settings.freelancers.push(newF);
+    Storage.saveSettings(settings);
     els.newFreelancer.value = '';
     refresh();
+    if (typeof Team !== 'undefined' && Team.render) Team.render();
+  }
+
+  function removeFreelancer(id) {
+    const settings = Storage.getSettings();
+    settings.freelancers = (settings.freelancers || []).filter(f => f.id !== id);
+    Storage.saveSettings(settings);
+    refresh();
+    JobsTable.render();
+    Dashboard.render();
+    if (typeof Team !== 'undefined' && Team.render) Team.render();
   }
 
   function exportData() {
@@ -153,6 +265,7 @@ const SettingsUI = (function () {
           refresh();
           JobsTable.render();
           Dashboard.render();
+          if (typeof Team !== 'undefined' && Team.render) Team.render();
           Utils.toast('Data imported', 'success');
         });
       } catch (err) {
@@ -171,6 +284,7 @@ const SettingsUI = (function () {
       refresh();
       JobsTable.render();
       Dashboard.render();
+      if (typeof Team !== 'undefined' && Team.render) Team.render();
       Utils.toast('All data cleared', 'success');
     });
   }

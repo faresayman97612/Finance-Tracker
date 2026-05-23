@@ -80,7 +80,10 @@ const JobsTable = (function () {
 
     const team = j.freelancers.length === 0
       ? `<span class="chip alone">🧍 Alone</span>`
-      : j.freelancers.map(f => `<span class="chip">${Utils.escapeHTML(f)}</span>`).join(' ');
+      : j.freelancers.map(id => {
+          const name = Storage.getFreelancerName(id, id);
+          return `<span class="chip">${Utils.escapeHTML(name)}</span>`;
+        }).join(' ');
 
     const desc = j.description
       ? `<span title="${Utils.escapeHTML(j.description)}">${Utils.escapeHTML(j.description)}</span>`

@@ -59,6 +59,9 @@ const PaymentLog = (function () {
     const rows = [];
     for (const job of Jobs.all()) {
       for (const p of (job.payments || [])) {
+        const toName = p.direction === 'outgoing'
+          ? (Storage.getFreelancerName(p.to, p.toName || ''))
+          : '';
         rows.push({
           jobId: job.id,
           jobName: job.jobName,
@@ -69,7 +72,8 @@ const PaymentLog = (function () {
           method: p.method,
           date: p.date,
           note: p.note || '',
-          to: p.to || ''
+          to: p.to || '',
+          toName
         });
       }
     }
@@ -133,7 +137,7 @@ const PaymentLog = (function () {
       const dirLabel = isIn ? 'In' : 'Out';
       const amtClass = isIn ? 'pos' : 'neg';
       const sign = isIn ? '+' : '−';
-      const fromTo = isIn ? Utils.escapeHTML(r.clientName) : Utils.escapeHTML(r.to || '—');
+      const fromTo = isIn ? Utils.escapeHTML(r.clientName) : Utils.escapeHTML(r.toName || '—');
 
       return `<tr>
         <td class="pl-date">${Utils.escapeHTML(Utils.formatDate(r.date))}</td>

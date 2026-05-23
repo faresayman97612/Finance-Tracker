@@ -53,12 +53,17 @@ const Dashboard = (function () {
     const outgoingByMethod = {};
     let totalPipeline = 0, totalCashIn = 0, totalTotalPay = 0;
     const freelancerAgg = {};
+    const teamLoad = {}; // id → { name, open }
     const clientReceivables = {};
     const jobValues = [];
     let overdueCount = 0, dueSoonCount = 0, totalPaidOut = 0;
     const dlStatus = { overdue: 0, 'due-soon': 0, ok: 0, 'awaiting-payment': 0, done: 0, none: 0 };
     const jobsPerMonth = {};
     const faresInByMonth = {};
+    const stageCounts = {};
+    let tasksTotal = 0, tasksDone = 0, tasksTodo = 0, tasksDoing = 0;
+    let tasksDueWeek = 0, tasksOverdue = 0;
+    const _today = new Date(); _today.setHours(0, 0, 0, 0);
 
     for (const j of computed) {
       earned += j.faresReceived;
@@ -89,6 +94,24 @@ const Dashboard = (function () {
         if (!freelancerAgg[f.name]) freelancerAgg[f.name] = { paid: 0, owed: 0 };
         freelancerAgg[f.name].paid += f.paid;
         freelancerAgg[f.name].owed += f.owedNow;
+        if (!teamLoad[f.id]) teamLoad[f.id] = { name: f.name, open: 0 };
+        teamLoad[f.id].open += (f.tasks.todo || 0) + (f.tasks.doing || 0);
+      }
+
+      // Stage / task aggregates
+      stageCounts[j.stage] = (stageCounts[j.stage] || 0) + 1;
+      for (const t of (j.tasks || [])) {
+        tasksTotal++;
+        if (t.status === 'done') tasksDone++;
+        else if (t.status === 'doing') tasksDoing++;
+        else tasksTodo++;
+        if (t.status !== 'done' && t.dueDate) {
+          const [y, m, d] = t.dueDate.split('-').map(Number);
+          const dl = new Date(y, m - 1, d);
+          const diff = Math.round((dl - _today) / 86400000);
+          if (diff < 0) tasksOverdue++;
+          else if (diff <= 7) tasksDueWeek++;
+        }
       }
 
       const cl = j.clientName || 'Unknown';
@@ -145,7 +168,11 @@ const Dashboard = (function () {
       totalPaidOut: Utils.round2(totalPaidOut),
       dlStatus,
       jobsPerMonth,
-      faresInByMonth
+      faresInByMonth,
+      stageCounts,
+      tasksTotal, tasksDone, tasksTodo, tasksDoing,
+      tasksDueWeek, tasksOverdue,
+      teamLoad
     };
   }
 
@@ -167,6 +194,111 @@ const Dashboard = (function () {
     document.getElementById('kpi-overdue').textContent     = String(agg.overdueCount);
     document.getElementById('kpi-due-soon').textContent    = String(agg.dueSoonCount);
     document.getElementById('kpi-team-payout').textContent = Utils.formatCurrency(agg.totalPaidOut, currency);
+
+    const tasksOpenEl = document.getElementById('kpi-tasks-open');
+    if (tasksOpenEl) tasksOpenEl.textContent = String((agg.tasksTodo || 0) + (agg.tasksDoing || 0));
+    const tasksDueEl = document.getElementById('kpi-tasks-due-week');
+    if (tasksDueEl) tasksDueEl.textContent = String(agg.tasksDueWeek || 0);
+    const tasksOvEl = document.getElementById('kpi-tasks-overdue');
+    if (tasksOvEl) tasksOvEl.textContent = String(agg.tasksOverdue || 0);
+    const teamLoadEl = document.getElementById('kpi-team-load');
+    if (teamLoadEl) {
+      const active = Object.values(agg.teamLoad || {}).filter(t => t.open > 0).length;
+      teamLoadEl.textContent = String(active);
+    }
+  }
+
+  function renderPipelineFunnelChart(agg, palette) {
+    const ctx = document.getElementById('chart-pipeline-funnel');
+    if (!ctx) return;
+    const order = Jobs.STAGES;
+    const labels = order.map(s => Jobs.STAGE_LABELS[s] || s);
+    const data = order.map(s => agg.stageCounts[s] || 0);
+    const stageColors = [
+      palette.colors[5], // lead
+      palette.colors[4], // proposal
+      palette.colors[3], // accepted
+      palette.accent,    // in-progress
+      palette.colors[2], // review
+      palette.colors[1], // delivered
+      palette.success,   // paid
+      palette.colors[0]  // closed
+    ];
+    if (charts.pipelineFunnel) charts.pipelineFunnel.destroy();
+    charts.pipelineFunnel = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Jobs',
+          data,
+          backgroundColor: stageColors.map(c => c + 'cc'),
+          borderColor: stageColors,
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.raw} job${ctx.raw !== 1 ? 's' : ''}` } }
+        },
+        scales: {
+          x: { grid: { color: palette.grid }, ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function renderTeamWorkloadChart(agg, palette) {
+    const ctx = document.getElementById('chart-team-workload');
+    if (!ctx) return;
+    const entries = Object.values(agg.teamLoad || {})
+      .filter(t => t.open > 0)
+      .sort((a, b) => b.open - a.open)
+      .slice(0, 10);
+    if (charts.teamWorkload) charts.teamWorkload.destroy();
+    if (entries.length === 0) {
+      charts.teamWorkload = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: ['No open tasks'], datasets: [{ data: [0], backgroundColor: [palette.grid], borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { display: false }, y: { display: false } }
+        }
+      });
+      return;
+    }
+    charts.teamWorkload = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: entries.map(e => e.name),
+        datasets: [{
+          label: 'Open tasks',
+          data: entries.map(e => e.open),
+          backgroundColor: palette.accent + 'cc',
+          borderColor: palette.accent,
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.raw} task${ctx.raw !== 1 ? 's' : ''}` } }
+        },
+        scales: {
+          x: { grid: { color: palette.grid }, ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
   }
 
   function renderCashFlowChart(agg, palette, currency) {
@@ -618,6 +750,8 @@ const Dashboard = (function () {
     renderDeadlineChart(agg, palette);
     renderJobsPerMonthChart(agg, palette);
     renderFaresMonthlyChart(agg, palette, currency);
+    renderPipelineFunnelChart(agg, palette);
+    renderTeamWorkloadChart(agg, palette);
     renderPaymentReminderChart(agg, palette, currency);
   }
 

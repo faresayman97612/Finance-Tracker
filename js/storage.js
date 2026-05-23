@@ -6,6 +6,7 @@
  *   Storage.getSettings()     — sync, returns cached object
  *   Storage.saveJobs(jobs)    — updates cache + writes to backend (returns Promise)
  *   Storage.saveSettings(s)   — updates cache + writes to backend (returns Promise)
+ *   Storage.getFreelancer(id) / Storage.getFreelancerName(id)
  *   Storage.exportAll()       — sync snapshot
  *   await Storage.importAll(payload)
  *   await Storage.clearAll()
@@ -21,15 +22,163 @@ const Storage = (function () {
   const DEFAULT_SETTINGS = {
     theme: 'system',
     currency: 'EGP',
-    freelancers: ['Ahmed Ajaj', 'Hamza Mohamed', 'Ammar Mohamed']
+    freelancers: [
+      { id: 'seed-ahmed', name: 'Ahmed Ajaj',    role: '', active: true },
+      { id: 'seed-hamza', name: 'Hamza Mohamed', role: '', active: true },
+      { id: 'seed-ammar', name: 'Ammar Mohamed', role: '', active: true }
+    ]
   };
+
+  const SCHEMA_VERSION = 2;
 
   let backend = 'local'; // 'firebase' | 'local'
   let firestore = null;
   let userId = null;
-  let cache = { jobs: [], settings: { ...DEFAULT_SETTINGS } };
+  let cache = { jobs: [], settings: cloneDefaultSettings() };
   let pendingSave = null;
   let saveTimer = null;
+  let migrationDone = false;
+
+  function cloneDefaultSettings() {
+    return {
+      theme: DEFAULT_SETTINGS.theme,
+      currency: DEFAULT_SETTINGS.currency,
+      freelancers: DEFAULT_SETTINGS.freelancers.map(f => ({ ...f }))
+    };
+  }
+
+  // ─── Migration ──────────────────────────────────────────────────────
+  //
+  // Idempotent. Converts schemaVersion-undefined data into v2:
+  //   • settings.freelancers: string[] → object[]
+  //   • job.freelancers:      string[] → freelancerId[]   (preserves any unknown name as a new "inactive" freelancer)
+  //   • job.payments[].to:    string  → freelancerId      (keeps payment.toName as a permanent display fallback)
+  //   • job.stage default from job.workStatus
+  //   • job.tasks default []
+  //   • job.activity default []
+  //   • job.schemaVersion = 2
+  function migrate(cache) {
+    let changed = false;
+
+    // 1. Settings.freelancers → object[]
+    const settings = cache.settings || (cache.settings = cloneDefaultSettings());
+    if (!Array.isArray(settings.freelancers)) settings.freelancers = [];
+
+    const nameToId = new Map();
+    const upgraded = [];
+    for (const item of settings.freelancers) {
+      if (typeof item === 'string') {
+        const id = Utils.uuid();
+        upgraded.push({ id, name: item, role: '', active: true });
+        nameToId.set(item, id);
+        changed = true;
+      } else if (item && typeof item === 'object') {
+        const id = item.id || Utils.uuid();
+        const f = {
+          id,
+          name: String(item.name || '').trim(),
+          role: item.role || '',
+          email: item.email || '',
+          phone: item.phone || '',
+          defaultSharePercent: (item.defaultSharePercent != null && item.defaultSharePercent !== '')
+            ? Number(item.defaultSharePercent) : null,
+          preferredMethod: item.preferredMethod || '',
+          notes: item.notes || '',
+          active: item.active !== false
+        };
+        if (!item.id) changed = true;
+        upgraded.push(f);
+        if (f.name) nameToId.set(f.name, id);
+      }
+    }
+    settings.freelancers = upgraded;
+
+    function freelancerIdForName(name) {
+      const trimmed = String(name || '').trim();
+      if (!trimmed) return '';
+      if (nameToId.has(trimmed)) return nameToId.get(trimmed);
+      const id = Utils.uuid();
+      settings.freelancers.push({
+        id, name: trimmed, role: '', active: false  // inactive by default — surfaced as "from old data"
+      });
+      nameToId.set(trimmed, id);
+      changed = true;
+      return id;
+    }
+
+    const knownIds = new Set(settings.freelancers.map(f => f.id));
+
+    // 2. Jobs
+    if (!Array.isArray(cache.jobs)) cache.jobs = [];
+    for (const job of cache.jobs) {
+      if (job.schemaVersion === SCHEMA_VERSION) continue;
+
+      // freelancers: name[] → id[]
+      if (Array.isArray(job.freelancers)) {
+        const mapped = [];
+        for (const entry of job.freelancers) {
+          if (typeof entry === 'string') {
+            // could already be an id (e.g. partial migration) — accept if known
+            if (knownIds.has(entry)) {
+              mapped.push(entry);
+            } else {
+              mapped.push(freelancerIdForName(entry));
+              changed = true;
+            }
+          }
+        }
+        job.freelancers = mapped;
+      } else {
+        job.freelancers = [];
+      }
+
+      // payments[].to: name → id, preserve toName
+      if (Array.isArray(job.payments)) {
+        for (const p of job.payments) {
+          if (p && p.direction === 'outgoing' && p.to) {
+            if (knownIds.has(p.to)) {
+              if (!p.toName) {
+                const ref = settings.freelancers.find(f => f.id === p.to);
+                if (ref) p.toName = ref.name;
+              }
+            } else {
+              // looks like a legacy name
+              const displayName = p.to;
+              const id = freelancerIdForName(displayName);
+              p.to = id;
+              p.toName = displayName;
+              changed = true;
+            }
+          }
+        }
+      } else {
+        job.payments = [];
+      }
+
+      // stage default
+      if (!job.stage) {
+        job.stage = job.workStatus === 'delivered' ? 'delivered' : 'in-progress';
+        changed = true;
+      }
+
+      // tasks default
+      if (!Array.isArray(job.tasks)) {
+        job.tasks = [];
+        changed = true;
+      }
+
+      // activity default
+      if (!Array.isArray(job.activity)) {
+        job.activity = [];
+        changed = true;
+      }
+
+      job.schemaVersion = SCHEMA_VERSION;
+      changed = true;
+    }
+
+    return changed;
+  }
 
   // ─── Local backend ──────────────────────────────────────────────────
 
@@ -39,11 +188,12 @@ const Storage = (function () {
       const rawSettings = localStorage.getItem(KEYS.SETTINGS);
       cache.jobs = rawJobs ? JSON.parse(rawJobs) : [];
       const s = rawSettings ? JSON.parse(rawSettings) : {};
-      cache.settings = { ...DEFAULT_SETTINGS, ...s };
+      cache.settings = { ...cloneDefaultSettings(), ...s };
     } catch (e) {
       console.warn('Local load failed', e);
-      cache = { jobs: [], settings: { ...DEFAULT_SETTINGS } };
+      cache = { jobs: [], settings: cloneDefaultSettings() };
     }
+    runMigration({ persistAfter: true });
   }
 
   function localSave() {
@@ -68,7 +218,7 @@ const Storage = (function () {
       if (snap.exists()) {
         const data = snap.data();
         cache.jobs = Array.isArray(data.jobs) ? data.jobs : [];
-        cache.settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+        cache.settings = { ...cloneDefaultSettings(), ...(data.settings || {}) };
       } else {
         // First-time user — migrate any local-mode data
         const rawJobs = localStorage.getItem(KEYS.JOBS);
@@ -77,13 +227,13 @@ const Storage = (function () {
           try {
             cache.jobs = rawJobs ? JSON.parse(rawJobs) : [];
             const s = rawSettings ? JSON.parse(rawSettings) : {};
-            cache.settings = { ...DEFAULT_SETTINGS, ...s };
+            cache.settings = { ...cloneDefaultSettings(), ...s };
             Utils.toast('Migrated your local data to cloud', 'success', 2500);
           } catch (parseErr) {
-            cache = { jobs: [], settings: { ...DEFAULT_SETTINGS } };
+            cache = { jobs: [], settings: cloneDefaultSettings() };
           }
         } else {
-          cache = { jobs: [], settings: { ...DEFAULT_SETTINGS } };
+          cache = { jobs: [], settings: cloneDefaultSettings() };
         }
         await window.FB.setDoc(userDoc(), { jobs: cache.jobs, settings: cache.settings });
       }
@@ -95,6 +245,25 @@ const Storage = (function () {
         Utils.toast('Could not load from cloud — using local cache', 'error', 3000);
       }
       localLoad();
+      return;
+    }
+    runMigration({ persistAfter: true });
+  }
+
+  function runMigration({ persistAfter }) {
+    try {
+      const changed = migrate(cache);
+      if (changed && !migrationDone) {
+        Utils.toast('Data updated to new team-workflow schema', 'info', 2200);
+      }
+      migrationDone = true;
+      if (changed && persistAfter) {
+        if (backend === 'firebase') scheduleFirebaseSave();
+        else localSave();
+      }
+    } catch (e) {
+      console.error('Migration failed — keeping cache as-is', e);
+      Utils.toast('Could not upgrade data — please export a backup', 'error', 5000);
     }
   }
 
@@ -144,9 +313,22 @@ const Storage = (function () {
     else localSave();
   }
 
+  function getFreelancer(id) {
+    if (!id) return null;
+    const list = (cache.settings && cache.settings.freelancers) || [];
+    return list.find(f => f.id === id) || null;
+  }
+
+  function getFreelancerName(id, fallback) {
+    const f = getFreelancer(id);
+    if (f && f.name) return f.name;
+    return fallback || '';
+  }
+
   function exportAll() {
     return {
-      version: 2,
+      version: 3,
+      schemaVersion: SCHEMA_VERSION,
       exportedAt: Utils.nowISO(),
       jobs: cache.jobs,
       settings: cache.settings
@@ -157,8 +339,11 @@ const Storage = (function () {
     if (!payload || typeof payload !== 'object') throw new Error('Invalid import file');
     if (Array.isArray(payload.jobs)) cache.jobs = payload.jobs;
     if (payload.settings && typeof payload.settings === 'object') {
-      cache.settings = { ...DEFAULT_SETTINGS, ...payload.settings };
+      cache.settings = { ...cloneDefaultSettings(), ...payload.settings };
     }
+    // Re-run migration on imported data so old backups upgrade in place
+    migrationDone = false;
+    runMigration({ persistAfter: false });
     if (backend === 'firebase') {
       await window.FB.setDoc(userDoc(), { jobs: cache.jobs, settings: cache.settings });
     } else {
@@ -167,7 +352,7 @@ const Storage = (function () {
   }
 
   async function clearAll() {
-    cache = { jobs: [], settings: { ...DEFAULT_SETTINGS } };
+    cache = { jobs: [], settings: cloneDefaultSettings() };
     if (backend === 'firebase') {
       await window.FB.setDoc(userDoc(), { jobs: [], settings: cache.settings });
     } else {
@@ -179,10 +364,11 @@ const Storage = (function () {
   function getMode() { return backend; }
 
   return {
-    KEYS, DEFAULT_SETTINGS,
+    KEYS, DEFAULT_SETTINGS, SCHEMA_VERSION,
     init,
     getJobs, getSettings,
     saveJobs, saveSettings,
+    getFreelancer, getFreelancerName,
     exportAll, importAll, clearAll,
     getMode
   };

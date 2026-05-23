@@ -21,6 +21,9 @@ const Payments = (function () {
     els.date = document.getElementById('p-date');
     els.note = document.getElementById('p-note');
     els.filterBtns = document.querySelectorAll('.pf-btn');
+    els.activityList = document.getElementById('activity-list');
+    els.activityInput = document.getElementById('activity-note-input');
+    els.activityBtn = document.getElementById('activity-note-btn');
 
     els.dirBtns.forEach(b => b.addEventListener('click', () => setDirection(b.dataset.direction)));
     els.filterBtns.forEach(b => b.addEventListener('click', () => {
@@ -29,6 +32,43 @@ const Payments = (function () {
       renderList();
     }));
     els.form.addEventListener('submit', onSubmit);
+
+    els.activityBtn.addEventListener('click', addNote);
+    els.activityInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addNote(); }
+    });
+  }
+
+  function addNote() {
+    if (!currentJobId) return;
+    const text = els.activityInput.value.trim();
+    if (!text) return;
+    Jobs.addActivityNote(currentJobId, text);
+    els.activityInput.value = '';
+    renderActivity();
+    Utils.toast('Note added', 'success', 1200);
+  }
+
+  function renderActivity() {
+    const job = Jobs.get(currentJobId);
+    if (!job || !els.activityList) return;
+    const entries = (job.activity || []).slice().reverse(); // newest first
+    if (entries.length === 0) {
+      els.activityList.innerHTML = '<p class="dim" style="font-size:12px;padding:8px 4px">No activity yet.</p>';
+      return;
+    }
+    els.activityList.innerHTML = entries.map(e => {
+      const cls = `activity-entry activity-${e.type || 'note'}`;
+      const ts = Utils.formatDate(e.ts) || '';
+      const time = e.ts ? new Date(e.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="${cls}">
+          <span class="ae-type">${Utils.escapeHTML((e.type || 'note').toUpperCase())}</span>
+          <span class="ae-msg">${Utils.escapeHTML(e.message)}</span>
+          <span class="ae-ts dim">${Utils.escapeHTML(ts)} ${Utils.escapeHTML(time)}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   function setDirection(d) {
@@ -46,7 +86,10 @@ const Payments = (function () {
     if (direction === 'outgoing') {
       const job = Jobs.get(currentJobId);
       const opts = (job?.freelancers || [])
-        .map(n => `<option value="${Utils.escapeHTML(n)}">${Utils.escapeHTML(n)}</option>`)
+        .map(id => {
+          const name = Storage.getFreelancerName(id, '(unknown)');
+          return `<option value="${Utils.escapeHTML(id)}">${Utils.escapeHTML(name)}</option>`;
+        })
         .join('');
       els.to.innerHTML = '<option value="">Select…</option>' + opts;
     }
@@ -108,23 +151,34 @@ const Payments = (function () {
           ${c.freelancerStats.map(f => {
             const pct = f.share > 0 ? Math.min(100, (f.paid / f.share) * 100) : 0;
             const cls = pct >= 100 ? '' : (pct > 0 ? 'partial' : 'empty');
+            const tasksLine = (f.tasks && (f.tasks.todo || f.tasks.doing || f.tasks.done))
+              ? `<span class="dim" style="font-size:11px">Tasks: ${f.tasks.done}/${f.tasks.todo + f.tasks.doing + f.tasks.done} done</span>`
+              : '';
+            const taskHint = f.taskShare > 0
+              ? `<span class="dim" style="font-size:11px">via tasks</span>`
+              : '<span class="dim" style="font-size:11px">equal split</span>';
             return `
               <div class="bd-row">
-                <div class="bd-name"><strong>${Utils.escapeHTML(f.name)}</strong> <span class="dim">(${f.percent}%)</span></div>
+                <div class="bd-name"><strong>${Utils.escapeHTML(f.name)}</strong> <span class="dim">(${f.percent}%)</span> ${taskHint}</div>
                 <div class="bd-amounts">
                   <span class="dim">Paid</span> <strong>${Utils.formatCurrency(f.paid, cur)}</strong>
                   <span class="dim">/ ${Utils.formatCurrency(f.share, cur)}</span>
                   ${f.owedNow > 0 ? `<span class="bd-owed">Owe now ${Utils.formatCurrency(f.owedNow, cur)}</span>` : ''}
+                  ${tasksLine}
                 </div>
                 <div class="bar"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
               </div>
             `;
           }).join('')}
         </div>
+        ${c.warnings && c.warnings.includes('task-allocation-exceeds-team-share') ? `
+          <div class="warning-banner">⚠ Task values exceed the team share — payouts follow tasks as authored.</div>
+        ` : ''}
       `;
     }
 
     renderList();
+    renderActivity();
   }
 
   function renderList() {
@@ -145,9 +199,10 @@ const Payments = (function () {
       const arrow = isIn
         ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
         : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>';
+      const toName = isIn ? '' : (Storage.getFreelancerName(p.to, p.toName || '?'));
       const fromTo = isIn
         ? `from ${Utils.escapeHTML(job.clientName)}`
-        : `to ${Utils.escapeHTML(p.to || '?')}`;
+        : `to ${Utils.escapeHTML(toName)}`;
       return `
         <div class="payment-item v2" data-pid="${p.id}">
           <span class="pi-direction ${p.direction}">${arrow} ${isIn ? 'IN' : 'OUT'}</span>
