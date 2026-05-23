@@ -55,6 +55,7 @@
       <button class="tab" data-tab="jobs" role="tab" aria-selected="false">Jobs</button>
       <button class="tab" data-tab="payments" role="tab" aria-selected="false">Payments</button>
       <button class="tab" data-tab="team" role="tab" aria-selected="false">Team</button>
+      <button class="tab" data-tab="insights" role="tab" aria-selected="false">Insights</button>
     </nav>
     <div class="header-actions">
       <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
@@ -327,6 +328,70 @@
         <p>No freelancers yet. Add them in <strong>Settings → Freelancers</strong>.</p>
       </div>
     </section>
+
+    <section id="view-insights" class="view">
+      <div id="insights-print-header" class="print-header"></div>
+
+      <div class="range-picker">
+        <div class="range-presets" id="range-presets" role="group" aria-label="Date range">
+          <button type="button" data-preset="this-month" class="active">This month</button>
+          <button type="button" data-preset="last-month">Last month</button>
+          <button type="button" data-preset="last-3">Last 3 months</button>
+          <button type="button" data-preset="ytd">YTD</button>
+          <button type="button" data-preset="last-12">Last 12 months</button>
+          <button type="button" data-preset="all">All time</button>
+          <button type="button" data-preset="custom">Custom</button>
+        </div>
+        <div class="range-custom" id="range-custom" hidden>
+          <input type="date" id="range-custom-from" class="input" aria-label="From">
+          <span class="dim">→</span>
+          <input type="date" id="range-custom-to" class="input" aria-label="To">
+        </div>
+        <div class="range-actions">
+          <span class="chip client-filter-chip" id="client-filter-chip" hidden></span>
+          <button type="button" class="btn btn-secondary" id="expenses-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Manage Expenses
+          </button>
+          <button type="button" class="btn btn-secondary" id="print-report-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+            Print Report
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="insights-pnl-grid"></div>
+
+      <div class="period-compare" id="insights-period-compare"></div>
+
+      <div class="chart-card forecast-card">
+        <h3>Revenue forecast</h3>
+        <p class="chart-subtitle">Pipeline projection by stage probability</p>
+        <div class="forecast-widget" id="insights-forecast"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Client profitability</h3>
+        <p class="chart-subtitle">Sort by any column · click a row to filter all widgets</p>
+        <div id="insights-client-table"></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Top clients by profit</h3>
+          <div class="chart-wrap"><canvas id="chart-insights-clients"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Top freelancers by output</h3>
+          <p class="chart-subtitle">Open + done tasks in range</p>
+          <div class="chart-wrap"><canvas id="chart-insights-freelancers"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Expenses by category</h3>
+          <div class="chart-wrap"><canvas id="chart-insights-expenses"></canvas></div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Add/Edit Job Modal -->
@@ -560,6 +625,43 @@
     </div>
   </div>
 
+  <!-- Expenses modal -->
+  <div class="modal-backdrop" id="expenses-modal" hidden>
+    <div class="modal modal-lg" role="dialog" aria-labelledby="expenses-modal-title">
+      <header class="modal-header">
+        <h2 id="expenses-modal-title">Expenses</h2>
+        <button class="icon-btn modal-close" data-close="expenses-modal" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="expense-add-row">
+          <input type="date" id="exp-add-date" class="input" aria-label="Date">
+          <select id="exp-add-category" class="input" aria-label="Category">
+            <option value="subscriptions">subscriptions</option>
+            <option value="tools">tools</option>
+            <option value="marketing">marketing</option>
+            <option value="transport">transport</option>
+            <option value="taxes">taxes</option>
+            <option value="other" selected>other</option>
+          </select>
+          <input type="number" id="exp-add-amount" class="input" min="0" step="0.01" placeholder="Amount" aria-label="Amount">
+          <input type="text" id="exp-add-description" class="input" placeholder="Description (e.g. Adobe CC)" aria-label="Description">
+          <select id="exp-add-recurring" class="input" aria-label="Recurring">
+            <option value="none" selected>one-off</option>
+            <option value="monthly">monthly</option>
+            <option value="yearly">yearly</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="exp-add-btn">Add</button>
+        </div>
+        <p class="dim" style="font-size:11px;margin:6px 0 12px">
+          Recurring expenses are expanded virtually — monthly/yearly instances are counted in any range that contains them.
+        </p>
+        <div id="expenses-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Drawer -->
   <div class="drawer-backdrop" id="settings-drawer" hidden>
     <aside class="drawer" role="dialog" aria-labelledby="settings-title">
@@ -695,6 +797,7 @@
   <script src="js/paymentlog.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/team.js"></script>
+  <script src="js/insights.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -1164,3 +1164,228 @@
   font-size: 12px;
   margin-top: 10px;
 }
+
+/* ─── Insights tab ─────────────────────────────────────────────────── */
+
+.print-header { display: none; }
+.print-header h1 { font-size: 18px; margin-bottom: 4px; }
+
+.range-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 18px;
+}
+.range-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  background: var(--bg-app);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.range-presets button {
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.range-presets button:hover { color: var(--text-primary); }
+.range-presets button.active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.range-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.range-custom .input { font-size: 12px; padding: 5px 8px; }
+.range-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.client-filter-chip {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.client-filter-chip .x {
+  cursor: pointer;
+  opacity: 0.7;
+  font-weight: 700;
+}
+.client-filter-chip .x:hover { opacity: 1; }
+
+/* P&L cards */
+.pnl-card { border-left: 3px solid transparent; }
+.pnl-card.revenue { border-left-color: var(--success); }
+.pnl-card.payout  { border-left-color: var(--warning); }
+.pnl-card.expenses { border-left-color: var(--warning); }
+.pnl-card.net { border-left-color: var(--accent); background: var(--accent-soft); }
+
+/* Delta arrows */
+.delta-up   { color: var(--success); font-weight: 500; }
+.delta-up::before   { content: "▲ "; font-size: 10px; }
+.delta-down { color: var(--danger); font-weight: 500; }
+.delta-down::before { content: "▼ "; font-size: 10px; }
+.delta-flat { color: var(--text-muted); }
+
+/* Period-over-period strip */
+.period-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.pc-cell { display: flex; flex-direction: column; gap: 2px; }
+.pc-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+.pc-current { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pc-delta { font-size: 12px; }
+.pc-previous { font-size: 11px; color: var(--text-muted); }
+
+/* Forecast widget */
+.forecast-card { margin-bottom: 18px; }
+.forecast-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.forecast-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 140px;
+  gap: 14px;
+  align-items: center;
+  font-size: 13px;
+}
+.forecast-label { color: var(--text-secondary); }
+.forecast-bar {
+  position: relative;
+  height: 12px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.forecast-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width 300ms ease;
+}
+.forecast-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+@media (max-width: 700px) {
+  .forecast-row { grid-template-columns: 1fr 80px; grid-template-rows: auto auto; }
+  .forecast-label { grid-column: 1 / -1; }
+}
+
+/* Client profit table */
+.client-profit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.client-profit-table thead th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.client-profit-table th.num, .client-profit-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.client-profit-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.client-profit-table tbody tr:last-child { border-bottom: none; }
+.client-profit-table tbody tr:hover { background: var(--bg-hover); }
+.client-profit-table td { padding: 10px 12px; }
+
+/* Expenses modal */
+.expense-add-row {
+  display: grid;
+  grid-template-columns: 130px 130px 110px 1fr 110px auto;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.expense-add-row .input { font-size: 12px; padding: 6px 8px; }
+@media (max-width: 700px) {
+  .expense-add-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .expense-add-row .btn { grid-column: 1 / -1; }
+}
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.expenses-table thead th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.expenses-table th.num, .expenses-table td.num { text-align: right; }
+.expenses-table tbody tr { border-bottom: 1px solid var(--border); }
+.expenses-table tbody tr:last-child { border-bottom: none; }
+.expenses-table td { padding: 6px 10px; }
+.expenses-table td .input { font-size: 12px; padding: 5px 7px; width: 100%; }
+
+/* ─── Print stylesheet ─────────────────────────────────────────────── */
+@media print {
+  .app-header, .tabs, .range-picker, .header-actions,
+  .modal-backdrop, .drawer-backdrop, .auth-overlay,
+  .toast-container { display: none !important; }
+  .view:not(#view-insights) { display: none !important; }
+  #view-insights { display: block !important; }
+  body { background: white !important; color: black !important; }
+  .chart-card, .pnl-card, .kpi-card, .period-compare {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+    background: white !important;
+  }
+  .print-header { display: block !important; margin-bottom: 14px; }
+  .charts-grid { grid-template-columns: 1fr 1fr !important; }
+  .chart-wrap { height: 220px !important; }
+  .client-filter-chip, #expenses-btn, #print-report-btn { display: none !important; }
+}

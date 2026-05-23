@@ -26,10 +26,12 @@ const Storage = (function () {
       { id: 'seed-ahmed', name: 'Ahmed Ajaj',    role: '', active: true },
       { id: 'seed-hamza', name: 'Hamza Mohamed', role: '', active: true },
       { id: 'seed-ammar', name: 'Ammar Mohamed', role: '', active: true }
-    ]
+    ],
+    expenses: []
   };
 
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
+  const EXPENSE_CATEGORIES = ['subscriptions', 'tools', 'marketing', 'transport', 'taxes', 'other'];
 
   let backend = 'local'; // 'firebase' | 'local'
   let firestore = null;
@@ -43,7 +45,8 @@ const Storage = (function () {
     return {
       theme: DEFAULT_SETTINGS.theme,
       currency: DEFAULT_SETTINGS.currency,
-      freelancers: DEFAULT_SETTINGS.freelancers.map(f => ({ ...f }))
+      freelancers: DEFAULT_SETTINGS.freelancers.map(f => ({ ...f })),
+      expenses: []
     };
   }
 
@@ -108,7 +111,13 @@ const Storage = (function () {
 
     const knownIds = new Set(settings.freelancers.map(f => f.id));
 
-    // 2. Jobs
+    // 2. Expenses default (v3)
+    if (!Array.isArray(settings.expenses)) {
+      settings.expenses = [];
+      changed = true;
+    }
+
+    // 3. Jobs
     if (!Array.isArray(cache.jobs)) cache.jobs = [];
     for (const job of cache.jobs) {
       if (job.schemaVersion === SCHEMA_VERSION) continue;
@@ -325,9 +334,22 @@ const Storage = (function () {
     return fallback || '';
   }
 
+  function getExpenses() {
+    if (!cache.settings) return [];
+    if (!Array.isArray(cache.settings.expenses)) cache.settings.expenses = [];
+    return cache.settings.expenses;
+  }
+
+  function saveExpenses(list) {
+    if (!cache.settings) cache.settings = cloneDefaultSettings();
+    cache.settings.expenses = Array.isArray(list) ? list : [];
+    if (backend === 'firebase') scheduleFirebaseSave();
+    else localSave();
+  }
+
   function exportAll() {
     return {
-      version: 3,
+      version: 4,
       schemaVersion: SCHEMA_VERSION,
       exportedAt: Utils.nowISO(),
       jobs: cache.jobs,
@@ -364,11 +386,12 @@ const Storage = (function () {
   function getMode() { return backend; }
 
   return {
-    KEYS, DEFAULT_SETTINGS, SCHEMA_VERSION,
+    KEYS, DEFAULT_SETTINGS, SCHEMA_VERSION, EXPENSE_CATEGORIES,
     init,
     getJobs, getSettings,
     saveJobs, saveSettings,
     getFreelancer, getFreelancerName,
+    getExpenses, saveExpenses,
     exportAll, importAll, clearAll,
     getMode
   };

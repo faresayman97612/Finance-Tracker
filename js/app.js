@@ -59,6 +59,7 @@ const App = (function () {
     if (name === 'jobs') JobsTable.render();
     if (name === 'payments') PaymentLog.render();
     if (name === 'team') Team.render();
+    if (name === 'insights') Insights.render();
   }
 
   function confirm(title, message, onYes) {
@@ -96,6 +97,7 @@ const App = (function () {
     PaymentLog.init();
     Dashboard.init();
     Team.init();
+    Insights.init();
     SettingsUI.init();
     init();
     Dashboard.render();
