@@ -1,18 +1,13 @@
 /* clientpay.js — Client Payment: per-client job table with per-row deposit/total mode and PDF export */
 
 const ClientPay = (function () {
+  const DEPOSIT_PCT = 50; // deposit is always 50% of total
   let _client = 'all';
-  let _depositPct = 50;
   const _modes = {}; // jobId -> 'total' | 'deposit'  (default 'total')
 
   function init() {
     document.getElementById('cp-client-filter').addEventListener('change', function () {
       _client = this.value;
-      render();
-    });
-
-    document.getElementById('cp-deposit-pct').addEventListener('input', function () {
-      _depositPct = Utils.clamp(this.value, 0, 100);
       render();
     });
 
@@ -45,6 +40,8 @@ const ClientPay = (function () {
   }
 
   // Build the display rows for the currently selected client.
+  // Only jobs with a positive outstanding balance in their current mode are shown
+  // (remaining <= 0 — fully paid, or overpaid vs. the deposit — is dropped).
   function _buildRows() {
     const jobs = Jobs.all()
       .filter(j => j.clientName === _client)
@@ -54,7 +51,7 @@ const ClientPay = (function () {
       const c = Jobs.compute(job);
       const total = c.totalPay;
       const paid = c.cashIn;
-      const deposit = Utils.round2(total * _depositPct / 100);
+      const deposit = Utils.round2(total * DEPOSIT_PCT / 100);
       const mode = _modes[job.id] || 'total';
       const remaining = mode === 'deposit'
         ? Utils.round2(deposit - paid)
@@ -64,7 +61,7 @@ const ClientPay = (function () {
         jobName: job.jobName || '(untitled)',
         total, deposit, paid, remaining, mode
       };
-    });
+    }).filter(r => r.remaining > 0);
   }
 
   function render() {
@@ -72,10 +69,6 @@ const ClientPay = (function () {
     const currency = (settings && settings.currency) || 'EGP';
 
     _populateClientFilter();
-
-    // Keep the deposit-% input in sync with state (e.g. after clamping)
-    const pctInput = document.getElementById('cp-deposit-pct');
-    if (pctInput && String(_depositPct) !== pctInput.value) pctInput.value = _depositPct;
 
     const tbody = document.getElementById('cp-tbody');
     const empty = document.getElementById('cp-empty');
@@ -95,30 +88,18 @@ const ClientPay = (function () {
       tbody.innerHTML = '';
       summary.innerHTML = '';
       empty.hidden = false;
-      empty.querySelector('p').innerHTML = `No jobs found for <strong>${Utils.escapeHTML(_client)}</strong>.`;
+      empty.querySelector('p').innerHTML = `Nothing outstanding for <strong>${Utils.escapeHTML(_client)}</strong> — all jobs are fully settled.`;
       return;
     }
     empty.hidden = true;
 
-    const totalSum = Utils.round2(rows.reduce((s, r) => s + r.total, 0));
-    const paidSum = Utils.round2(rows.reduce((s, r) => s + r.paid, 0));
     const remainingSum = Utils.round2(rows.reduce((s, r) => s + r.remaining, 0));
 
     summary.innerHTML = `
       <div class="ps-card">
-        <div class="ps-label">Total</div>
-        <div class="ps-value">${Utils.formatCurrency(totalSum, currency)}</div>
-        <div class="ps-sub">${rows.length} job${rows.length !== 1 ? 's' : ''}</div>
-      </div>
-      <div class="ps-card">
-        <div class="ps-label">Paid</div>
-        <div class="ps-value" style="color:var(--success)">${Utils.formatCurrency(paidSum, currency)}</div>
-        <div class="ps-sub">received from client</div>
-      </div>
-      <div class="ps-card">
         <div class="ps-label">Remaining</div>
-        <div class="ps-value" style="color:${remainingSum > 0 ? 'var(--warning)' : 'var(--success)'}">${remainingSum < 0 ? '−' : ''}${Utils.formatCurrency(Math.abs(remainingSum), currency)}</div>
-        <div class="ps-sub">across selected modes</div>
+        <div class="ps-value" style="color:var(--warning)">${Utils.formatCurrency(remainingSum, currency)}</div>
+        <div class="ps-sub">${rows.length} outstanding job${rows.length !== 1 ? 's' : ''}</div>
       </div>
     `;
 
@@ -188,15 +169,14 @@ const ClientPay = (function () {
     doc.setFontSize(10);
     doc.text(`Generated ${Utils.formatDate(Utils.nowISO())}  ·  Currency: ${currency}`, marginX, 35);
 
-    // --- Table ---
+    // --- Table (Mode column is intentionally omitted from the PDF) ---
     const body = rows.map((r, i) => [
       String(i + 1),
       r.jobName,
       fmt(r.total),
       r.mode === 'deposit' ? fmt(r.deposit) : '—',
       fmt(r.paid),
-      (r.remaining < 0 ? '-' : '') + fmt(Math.abs(r.remaining)),
-      r.mode === 'deposit' ? 'Deposit' : 'Total'
+      (r.remaining < 0 ? '-' : '') + fmt(Math.abs(r.remaining))
     ]);
 
     const totalSum = rows.reduce((s, r) => s + r.total, 0);
@@ -207,13 +187,12 @@ const ClientPay = (function () {
       fmt(Utils.round2(totalSum)),
       '',
       fmt(Utils.round2(paidSum)),
-      (remainingSum < 0 ? '-' : '') + fmt(Math.abs(Utils.round2(remainingSum))),
-      ''
+      (remainingSum < 0 ? '-' : '') + fmt(Math.abs(Utils.round2(remainingSum)))
     ];
 
     doc.autoTable({
       startY: 42,
-      head: [['#', 'Job', 'Total', `Deposit (${_depositPct}%)`, 'Paid', 'Remaining', 'Mode']],
+      head: [['#', 'Job', 'Total', `Deposit (${DEPOSIT_PCT}%)`, 'Paid', 'Remaining']],
       body,
       foot: [footRow],
       theme: 'striped',
