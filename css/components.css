@@ -1392,7 +1392,8 @@
 
 /* Client Payment section */
 
-#view-clientpay .pl-toolbar {
+#view-clientpay .pl-toolbar,
+#view-payments .pl-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
