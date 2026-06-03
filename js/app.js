@@ -58,6 +58,7 @@ const App = (function () {
     if (name === 'dashboard') Dashboard.render();
     if (name === 'jobs') JobsTable.render();
     if (name === 'payments') PaymentLog.render();
+    if (name === 'clientpay') ClientPay.render();
     if (name === 'team') Team.render();
     if (name === 'insights') Insights.render();
   }
@@ -95,6 +96,7 @@ const App = (function () {
     JobsTable.init();
     Payments.init();
     PaymentLog.init();
+    ClientPay.init();
     Dashboard.init();
     Team.init();
     Insights.init();

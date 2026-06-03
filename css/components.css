@@ -1389,3 +1389,29 @@
   .chart-wrap { height: 220px !important; }
   .client-filter-chip, #expenses-btn, #print-report-btn { display: none !important; }
 }
+
+/* Client Payment section */
+
+#view-clientpay .pl-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cp-pct-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.cp-pct-input { width: 72px; max-width: 72px; }
+
+.cp-dash { color: var(--text-secondary); }
+
+/* Per-row mode toggle sized to fit a table cell */
+.cp-mode-toggle { padding: 3px; }
+.cp-mode-toggle .mode-btn { padding: 4px 12px; font-size: 12px; }

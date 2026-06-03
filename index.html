@@ -27,6 +27,8 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/components.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script type="module">
     // Firebase SDK (v10 modular) — exposed as window.FB for non-module scripts
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -54,6 +56,7 @@
       <button class="tab active" data-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
       <button class="tab" data-tab="jobs" role="tab" aria-selected="false">Jobs</button>
       <button class="tab" data-tab="payments" role="tab" aria-selected="false">Payments</button>
+      <button class="tab" data-tab="clientpay" role="tab" aria-selected="false">Client Payment</button>
       <button class="tab" data-tab="team" role="tab" aria-selected="false">Team</button>
       <button class="tab" data-tab="insights" role="tab" aria-selected="false">Insights</button>
     </nav>
@@ -313,6 +316,47 @@
         <div class="empty-state" id="pl-empty" hidden>
           <div class="empty-emoji">💳</div>
           <p>No payments found. Add payments from the <strong>Jobs</strong> tab to see them here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-clientpay" class="view">
+      <div class="pl-toolbar">
+        <div class="pl-filters">
+          <select id="cp-client-filter" class="input">
+            <option value="all">Choose a client…</option>
+          </select>
+          <label class="cp-pct-field">
+            <span>Deposit %</span>
+            <input type="number" id="cp-deposit-pct" class="input cp-pct-input" value="50" min="0" max="100" step="1">
+          </label>
+        </div>
+        <button type="button" class="btn" id="cp-export-pdf">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Export PDF
+        </button>
+      </div>
+
+      <div class="payments-summary" id="cp-summary"></div>
+
+      <div class="table-wrap">
+        <table class="jobs-table" id="cp-table">
+          <thead>
+            <tr>
+              <th class="num" style="width:36px">#</th>
+              <th>Job</th>
+              <th class="num">Total</th>
+              <th class="num">Deposit</th>
+              <th class="num">Paid</th>
+              <th class="num">Remaining</th>
+              <th>Mode</th>
+            </tr>
+          </thead>
+          <tbody id="cp-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="cp-empty" hidden>
+          <div class="empty-emoji">🧾</div>
+          <p>Choose a client above to see their jobs and payment status.</p>
         </div>
       </div>
     </section>
@@ -795,6 +839,7 @@
   <script src="js/table.js"></script>
   <script src="js/payments.js"></script>
   <script src="js/paymentlog.js"></script>
+  <script src="js/clientpay.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/team.js"></script>
   <script src="js/insights.js"></script>
