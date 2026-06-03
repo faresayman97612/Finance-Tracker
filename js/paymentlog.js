@@ -220,13 +220,13 @@ const PaymentLog = (function () {
       ];
     });
 
-    // Footer: In / Out / Net summary for the exported set.
-    const totalIn = Utils.round2(rows.filter(r => r.direction === 'incoming').reduce((s, r) => s + r.amount, 0));
-    const totalOut = Utils.round2(rows.filter(r => r.direction === 'outgoing').reduce((s, r) => s + r.amount, 0));
-    const net = Utils.round2(totalIn - totalOut);
+    // Footer: a single net total for the exported set (incoming − outgoing).
+    const totalIn = rows.filter(r => r.direction === 'incoming').reduce((s, r) => s + r.amount, 0);
+    const totalOut = rows.filter(r => r.direction === 'outgoing').reduce((s, r) => s + r.amount, 0);
+    const total = Utils.round2(totalIn - totalOut);
     const footRow = [
-      'Totals', '',
-      `In ${fmt(totalIn)}  ·  Out ${fmt(totalOut)}  ·  Net ${net < 0 ? '-' : ''}${fmt(Math.abs(net))}`,
+      'Total', '',
+      `${total < 0 ? '-' : ''}${fmt(Math.abs(total))}`,
       '', '', '', '', ''
     ];
 
