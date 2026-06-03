@@ -19,7 +19,26 @@ const ClientPay = (function () {
       if (!btn) return;
       const jobId = btn.dataset.jobId;
       const mode = btn.dataset.mode;
-      if (!jobId || !mode) return;
+      if (!jobId || !mode || _modes[jobId] === mode) return;
+
+      // Switching to deposit mode can make a job's remaining zero/negative, which
+      // removes it from the table. Confirm before doing that.
+      if (mode === 'deposit') {
+        const job = Jobs.all().find(j => j.id === jobId);
+        if (job) {
+          const c = Jobs.compute(job);
+          const depositRemaining = Utils.round2(Utils.round2(c.totalPay * DEPOSIT_PCT / 100) - c.cashIn);
+          if (depositRemaining <= 0) {
+            App.confirm(
+              'Remove from list?',
+              `In deposit mode, “${job.jobName || '(untitled)'}” has nothing left to collect (the deposit is fully paid), so it will be removed from this list. Continue?`,
+              () => { _modes[jobId] = mode; render(); }
+            );
+            return;
+          }
+        }
+      }
+
       _modes[jobId] = mode;
       render();
     });
@@ -179,14 +198,11 @@ const ClientPay = (function () {
       (r.remaining < 0 ? '-' : '') + fmt(Math.abs(r.remaining))
     ]);
 
-    const totalSum = rows.reduce((s, r) => s + r.total, 0);
-    const paidSum = rows.reduce((s, r) => s + r.paid, 0);
+    // Footer shows only the total remaining (Total and Paid totals are omitted).
     const remainingSum = rows.reduce((s, r) => s + r.remaining, 0);
     const footRow = [
-      '', 'Totals',
-      fmt(Utils.round2(totalSum)),
-      '',
-      fmt(Utils.round2(paidSum)),
+      '', '', '', '',
+      'Total remaining',
       (remainingSum < 0 ? '-' : '') + fmt(Math.abs(Utils.round2(remainingSum)))
     ];
 
