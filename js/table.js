@@ -5,6 +5,7 @@ const JobsTable = (function () {
   let sortDir = 'desc'; // 'asc' | 'desc'
   let search = '';
   let statusFilter = 'all';
+  let stageFilter = 'all';
   let clientFilter = 'all';
 
   function init() {
@@ -19,12 +20,14 @@ const JobsTable = (function () {
 
     const search$ = document.getElementById('search-input');
     const status$ = document.getElementById('status-filter');
+    const stage$ = document.getElementById('stage-filter');
     const client$ = document.getElementById('client-filter');
     search$.addEventListener('input', Utils.debounce(() => {
       search = search$.value.toLowerCase().trim();
       render();
     }, 150));
     status$.addEventListener('change', () => { statusFilter = status$.value; render(); });
+    stage$.addEventListener('change', () => { stageFilter = stage$.value; render(); });
     client$.addEventListener('change', () => { clientFilter = client$.value; render(); });
   }
 
@@ -45,6 +48,7 @@ const JobsTable = (function () {
     }
     if (clientFilter !== 'all' && job.clientName !== clientFilter) return false;
     if (statusFilter !== 'all' && job.paymentStatus !== statusFilter) return false;
+    if (stageFilter !== 'all' && job.stage !== stageFilter) return false;
     return true;
   }
 

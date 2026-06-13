@@ -980,13 +980,9 @@
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
-.stage-pill.stage-lead         { background: var(--bg-hover);     color: var(--text-secondary); }
 .stage-pill.stage-proposal     { background: var(--accent-soft);  color: var(--accent); }
-.stage-pill.stage-accepted     { background: var(--accent-soft);  color: var(--accent); }
 .stage-pill.stage-in-progress  { background: var(--warning-soft); color: var(--warning); }
-.stage-pill.stage-review       { background: var(--warning-soft); color: var(--warning); }
 .stage-pill.stage-delivered    { background: var(--success-soft); color: var(--success); }
-.stage-pill.stage-paid         { background: var(--success-soft); color: var(--success); }
 .stage-pill.stage-closed       { background: var(--bg-hover);     color: var(--text-muted); }
 
 /* ─── Activity log (payments modal) ────────────────────────────────── */

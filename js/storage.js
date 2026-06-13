@@ -30,7 +30,7 @@ const Storage = (function () {
     expenses: []
   };
 
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
   const EXPENSE_CATEGORIES = ['subscriptions', 'tools', 'marketing', 'transport', 'taxes', 'other'];
 
   let backend = 'local'; // 'firebase' | 'local'
@@ -167,6 +167,13 @@ const Storage = (function () {
       // stage default
       if (!job.stage) {
         job.stage = job.workStatus === 'delivered' ? 'delivered' : 'in-progress';
+        changed = true;
+      }
+
+      // collapse legacy stages onto the 4-value status set
+      const COLLAPSE = { 'lead': 'proposal', 'accepted': 'in-progress', 'review': 'delivered', 'paid': 'delivered' };
+      if (job.stage && COLLAPSE[job.stage]) {
+        job.stage = COLLAPSE[job.stage];
         changed = true;
       }
 

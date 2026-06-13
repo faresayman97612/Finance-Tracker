@@ -62,7 +62,7 @@ const Team = (function () {
         slot.tasks.todo += f.tasks.todo;
         slot.tasks.doing += f.tasks.doing;
         slot.tasks.done += f.tasks.done;
-        if (c.stage !== 'paid' && c.stage !== 'closed') slot.activeJobs += 1;
+        if (c.stage !== 'delivered' && c.stage !== 'closed') slot.activeJobs += 1;
       }
       // collect outgoing payments
       for (const p of (job.payments || [])) {
@@ -176,7 +176,7 @@ const Team = (function () {
       : `
         <table class="fl-assignments">
           <thead>
-            <tr><th>Job</th><th>Client</th><th>Stage</th><th class="num">Share</th><th class="num">Paid</th><th class="num">Owed</th></tr>
+            <tr><th>Job</th><th>Client</th><th>Status</th><th class="num">Share</th><th class="num">Paid</th><th class="num">Owed</th></tr>
           </thead>
           <tbody>
             ${slot.assignments.map(a => `

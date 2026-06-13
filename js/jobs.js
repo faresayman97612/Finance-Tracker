@@ -8,16 +8,19 @@ const Jobs = (function () {
   const INCOMING_METHODS = ['Telda', 'Instapay', 'Binance', 'VodafoneCash'];
   const OUTGOING_METHODS = ['Telda', 'Instapay', 'VodafoneCash', 'Cash'];
 
-  const STAGES = ['lead', 'proposal', 'accepted', 'in-progress', 'review', 'delivered', 'paid', 'closed'];
+  const STAGES = ['proposal', 'in-progress', 'delivered', 'closed'];
   const STAGE_LABELS = {
-    'lead':        'Lead',
     'proposal':    'Proposal',
-    'accepted':    'Accepted',
     'in-progress': 'In Progress',
-    'review':      'Review',
     'delivered':   'Delivered',
-    'paid':        'Paid',
     'closed':      'Closed'
+  };
+  // Legacy stages (pre-4-value status) collapse onto the survivors.
+  const LEGACY_STAGE_MAP = {
+    'lead':     'proposal',
+    'accepted': 'in-progress',
+    'review':   'delivered',
+    'paid':     'delivered'
   };
 
   const TASK_STATUSES = ['todo', 'doing', 'done'];
@@ -39,11 +42,12 @@ const Jobs = (function () {
   function get(id) { return _jobs.find(j => j.id === id) || null; }
 
   function normalizeStage(s) {
+    if (LEGACY_STAGE_MAP[s]) return LEGACY_STAGE_MAP[s];
     return STAGES.includes(s) ? s : 'in-progress';
   }
 
   function deriveWorkStatus(stage) {
-    return (stage === 'delivered' || stage === 'paid' || stage === 'closed') ? 'delivered' : 'in-progress';
+    return (stage === 'delivered' || stage === 'closed') ? 'delivered' : 'in-progress';
   }
 
   function makeActivity(type, message) {
@@ -405,7 +409,7 @@ const Jobs = (function () {
     today.setHours(0, 0, 0, 0);
     let daysToDeadline = null;
     let deadlineStatus = 'none';
-    const deliveredLike = stage === 'delivered' || stage === 'review' || stage === 'paid' || stage === 'closed';
+    const deliveredLike = stage === 'delivered' || stage === 'closed';
     if (paymentStatus === 'paid') {
       deadlineStatus = 'done';
     } else if (deliveredLike) {

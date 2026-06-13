@@ -215,13 +215,9 @@ const Dashboard = (function () {
     const labels = order.map(s => Jobs.STAGE_LABELS[s] || s);
     const data = order.map(s => agg.stageCounts[s] || 0);
     const stageColors = [
-      palette.colors[5], // lead
       palette.colors[4], // proposal
-      palette.colors[3], // accepted
       palette.accent,    // in-progress
-      palette.colors[2], // review
       palette.colors[1], // delivered
-      palette.success,   // paid
       palette.colors[0]  // closed
     ];
     if (charts.pipelineFunnel) charts.pipelineFunnel.destroy();

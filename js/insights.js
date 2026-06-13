@@ -3,13 +3,9 @@
 const Insights = (function () {
   // Stage probabilities for revenue forecast (tweakable)
   const STAGE_PROBABILITY = {
-    'lead':        0.10,
     'proposal':    0.25,
-    'accepted':    0.60,
     'in-progress': 0.75,
-    'review':      0.85,
     'delivered':   0.95,
-    'paid':        1.00,
     'closed':      0.00
   };
 
@@ -287,7 +283,7 @@ const Insights = (function () {
       const prob = STAGE_PROBABILITY[c.stage] != null ? STAGE_PROBABILITY[c.stage] : 0;
       expected += faresShare * prob;
       bestCase += faresShare;
-      if (c.stage === 'paid') worstCase += faresShare;
+      if (c.stage === 'delivered') worstCase += faresShare;
     }
     return {
       expected: Utils.round2(expected),
@@ -639,12 +635,12 @@ const Insights = (function () {
     const pct = v => Math.min(100, (v / max) * 100);
     els.forecast.innerHTML = `
       <div class="forecast-row">
-        <div class="forecast-label">Worst <span class="dim">(only "paid" stages)</span></div>
+        <div class="forecast-label">Worst <span class="dim">(only "delivered" jobs)</span></div>
         <div class="forecast-bar"><span style="width:${pct(forecast.worstCase)}%;background:var(--danger)"></span></div>
         <div class="forecast-value">${Utils.formatCurrency(forecast.worstCase, currency)}</div>
       </div>
       <div class="forecast-row">
-        <div class="forecast-label">Expected <span class="dim">(stage-weighted)</span></div>
+        <div class="forecast-label">Expected <span class="dim">(status-weighted)</span></div>
         <div class="forecast-bar"><span style="width:${pct(forecast.expected)}%;background:var(--accent)"></span></div>
         <div class="forecast-value">${Utils.formatCurrency(forecast.expected, currency)}</div>
       </div>

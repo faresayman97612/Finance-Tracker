@@ -212,8 +212,8 @@
           <div class="chart-wrap"><canvas id="chart-fares-monthly"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3>Pipeline funnel</h3>
-          <p class="chart-subtitle">Jobs by current stage</p>
+          <h3>Status funnel</h3>
+          <p class="chart-subtitle">Jobs by current status</p>
           <div class="chart-wrap"><canvas id="chart-pipeline-funnel"></canvas></div>
         </div>
         <div class="chart-card">
@@ -238,6 +238,13 @@
             <option value="unpaid">Unpaid</option>
             <option value="partial">Partially paid</option>
             <option value="paid">Fully paid</option>
+          </select>
+          <select id="stage-filter" class="input">
+            <option value="all">All status</option>
+            <option value="proposal">Proposal</option>
+            <option value="in-progress">In Progress</option>
+            <option value="delivered">Delivered</option>
+            <option value="closed">Closed</option>
           </select>
           <select id="client-filter" class="input">
             <option value="all">All clients</option>
@@ -410,7 +417,7 @@
 
       <div class="chart-card forecast-card">
         <h3>Revenue forecast</h3>
-        <p class="chart-subtitle">Pipeline projection by stage probability</p>
+        <p class="chart-subtitle">Pipeline projection by status probability</p>
         <div class="forecast-widget" id="insights-forecast"></div>
       </div>
 
@@ -482,15 +489,11 @@
             <input type="date" id="f-deadlineDate" class="input">
           </label>
           <label class="field">
-            <span>Stage</span>
+            <span>Status</span>
             <select id="f-stage" class="input">
-              <option value="lead">Lead</option>
               <option value="proposal">Proposal</option>
-              <option value="accepted">Accepted</option>
               <option value="in-progress" selected>In Progress</option>
-              <option value="review">Review</option>
               <option value="delivered">Delivered</option>
-              <option value="paid">Paid</option>
               <option value="closed">Closed</option>
             </select>
           </label>
